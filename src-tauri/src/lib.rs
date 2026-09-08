@@ -5,7 +5,7 @@ use tauri_plugin_sql::{Migration, MigrationKind};
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 
 // главная функция для запуска приложения
-pub fn run(){
+pub fn run() {
     // создание списков миграций
     let migrations = vec![
         // описание
@@ -23,20 +23,20 @@ pub fn run(){
 
     // создаем сборщик приложения tauri
     tauri::Builder::default()
-    // плагин sql
+        .plugin(tauri_plugin_sql::Builder::new().build())
+        // плагин sql
         .plugin(
             // сборщик плагинов
-            tauri_plugin_sql::PluginBuilder::default()
-            // связываем migrations c базой sql
+            tauri_plugin_sql::Builder::default()
+                // связываем migrations c базой sql
                 .add_migrations("sqlite:messanger.db", migrations)
-            // собираем плагины
-                .build()
-
+                // собираем плагины
+                .build(),
         )
-    // создаем plugin opener
-    .plugin(tauri_plugin_opener::init())
-    // запускаем приложение
-    .run(tauri::generate_context!())
-    // если запуск с ошибкой, то сообщаем
-    .expect("error while running tauri application");
+        // создаем plugin opener
+        .plugin(tauri_plugin_opener::init())
+        // запускаем приложение
+        .run(tauri::generate_context!())
+        // если запуск с ошибкой, то сообщаем
+        .expect("error while running tauri application");
 }

@@ -1,7 +1,7 @@
 -- создание таблицы сообщений
 CREATE TABLE IF NOT EXISTS messages (
   -- уникальный номер соо
-  id INT PRIMARY KEY AUTOINCERMENT,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
 
   -- имя автора соо
   author TEXT NOT NULL,
