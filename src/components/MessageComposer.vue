@@ -49,6 +49,7 @@ function submitMessage(){
   padding: 15px 20px;
   border-top: 1px solid #252830;
   background: #17191f;
+  flex-shrink: 0;
 }
 
 .composer input{

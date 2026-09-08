@@ -35,6 +35,8 @@ defineProps<{
   padding: 18px 24px;
   border-bottom: 1px solid #292c34;
   background: #17191f;
+  /* Управляет тем, может ли flex уменьшать элемент*/
+  flex-shrink: 0;
 }
 
 .header h1 {
