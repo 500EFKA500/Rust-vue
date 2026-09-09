@@ -1,11 +1,25 @@
 <script setup lang="ts">
 
+import UserSwitcher from "./UserSwitcher.vue";
+
+import type { User } from "../types/user";
+
 // defineProps - спец конструкция vue, которая сообщает:
 // этот компонент ожидает получения данных от родительского компонента
 
 defineProps<{
   status: string;
+  users: User[];
+  currentUser: User;
 }>();
+
+const emit = defineEmits<{
+  select: [user: User];
+}>();
+
+function selectUser(user: User){
+  emit("select", user)
+}
 </script>
 
 <template>
@@ -16,6 +30,13 @@ defineProps<{
       <p>{{status}}</p>
     </div>
 
+    <div class="header_actions">
+      <UserSwitcher
+        :user="users"
+        :current-user-id="currentUser.id"
+        @select="selectUser"
+      />
+    </div>
     <span class="badge">
         Локально
       </span>
@@ -37,6 +58,12 @@ defineProps<{
   background: #17191f;
   /* Управляет тем, может ли flex уменьшать элемент*/
   flex-shrink: 0;
+}
+
+.header_actions{
+  display: flex;
+  align-self: center;
+  gap: 12px;
 }
 
 .header h1 {

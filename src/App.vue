@@ -1,17 +1,44 @@
 <script setup lang="ts">
 
-import type { Message} from "./types/messages.ts";
+import type { Message } from "./types/messages.ts";
+import type { User } from "./types/user.ts";
 import Database from "@tauri-apps/plugin-sql"
 import MessageList from "./components/MessageList.vue";
 import MessageComposer from "./components/MessageComposer.vue";
+import UserSwitcher from "./components/UserSwitcher.vue";
 // импорт 2 фунции из vue
 // onMounted - запускает код после появления компонента
 // ref -создает быстрое перемещение
 import { onMounted, ref } from "vue";
 import AppHeader from "./components/AppHeader.vue";
 
+const oleg: User = {
+  id: 1,
+  name: "Олег",
+};
+
+const kirill: User = {
+  id: 2,
+  name: "Киррил",
+};
+
+const users: User[] ={
+  oleg,
+  kirill,
+};
+
+const currentUser = ref<User>(oleg);
+
+function selectUser(user: User){
+  currentUser.value = user;
+}
+
 // список соо которые vue отображает в диалоговом экране
 const messages = ref<Message[]>([]);
+
+// Список пользователей приходит из таблицы users в SQLite.
+const users = ref<User[]>([]);
+const currentUserId = ref<number | null>(null);
 
 // статус подключения
 const status = ref("Подключение...")
@@ -30,12 +57,32 @@ async function loadMessages(){
   );
 }
 
+// Загружаем пользователей из базы. До появления записей массив остаётся пустым.
+async function loadUsers(){
+  if (!db) return;
+
+  users.value = await db.select<User[]>(
+      "SELECT id, name FROM users ORDER BY id ASC",
+  );
+
+  // Если текущий пользователь ещё не выбран, выбираем первого из базы.
+  if (currentUserId.value === null && users.value.length > 0) {
+    currentUserId.value = users.value[0].id;
+  }
+}
+
+function selectUser(user: User){
+  currentUserId.value = user.id;
+}
+
 async function sendMessage(body: string){
   if (!db) return;
 
+  const author = users.value.find((user) => user.id === currentUserId.value)?.name ?? "Вы";
+
   await db.execute(
       "INSERT INTO messages (author, body) VALUES ($1, $2)",
-      ["Вы", body]
+      [author, body]
   )
   await loadMessages()
 
@@ -49,6 +96,7 @@ onMounted(async()=>{
 
     // загружаем из базы старые соо
     await loadMessages();
+    await loadUsers();
 
     // показываем успешное соединение
     status.value = "История сохраняется локально";
@@ -69,6 +117,11 @@ onMounted(async()=>{
         <h2>Первый чат</h2>
         <p2>локальный мессенджер</p2>
       </div>
+      <UserSwitcher
+        :users="users"
+        :current-user-id="currentUserId"
+        @select="selectUser"
+      />
       <MessageList :messages="messages"/>
       <MessageComposer @send="sendMessage"/>
     </section>
