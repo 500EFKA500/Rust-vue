@@ -19,12 +19,6 @@ pub fn run() {
             // up - база сдвинется вперед
             kind: MigrationKind::Up,
         },
-        Migration {
-            version: 2,
-            description: "create_users_table",
-            sql: include_str!("../migrations/0002_create_users.sql"),
-            kind: MigrationKind::Up,
-        },
     ];
 
     // создаем сборщик приложения tauri

@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import type { User } from "../types/user.ts";
 
-withDefaults(defineProps<{
-  users?: User[];
+defineProps<{
+  users: User[];
 
-  currentUserId: number | null;
-}>(), {
-  users: () => [],
-});
+  currentUserId: number;
+}>();
 
 const emit = defineEmits<{
   select: [user: User];

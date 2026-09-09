@@ -2,15 +2,23 @@
 
 import type { Message } from "./types/messages.ts";
 import type { User } from "./types/user.ts";
+import AppHeader from "./components/AppHeader.vue";
+import EmojesList from "./components/EmojesList.vue";
 import Database from "@tauri-apps/plugin-sql"
 import MessageList from "./components/MessageList.vue";
 import MessageComposer from "./components/MessageComposer.vue";
-import UserSwitcher from "./components/UserSwitcher.vue";
+
 // импорт 2 фунции из vue
 // onMounted - запускает код после появления компонента
 // ref -создает быстрое перемещение
 import { onMounted, ref } from "vue";
-import AppHeader from "./components/AppHeader.vue";
+const isEmojiOpen = ref(false);
+const draft = ref("")
+
+function addEmoji(emoji: string) {
+  draft.value += emoji;
+  isEmojiOpen.value = false;
+}
 
 const oleg: User = {
   id: 1,
@@ -22,10 +30,10 @@ const kirill: User = {
   name: "Киррил",
 };
 
-const users: User[] ={
+const users: User[] = [
   oleg,
   kirill,
-};
+];
 
 const currentUser = ref<User>(oleg);
 
@@ -36,14 +44,11 @@ function selectUser(user: User){
 // список соо которые vue отображает в диалоговом экране
 const messages = ref<Message[]>([]);
 
-// Список пользователей приходит из таблицы users в SQLite.
-const users = ref<User[]>([]);
-const currentUserId = ref<number | null>(null);
-
 // статус подключения
 const status = ref("Подключение...")
 
 // здесь будет подключение к бд
+// здесь будет подключение кд
 let db: Database | null = null;
 
 // асинхронная функция загрузки соо из sql
@@ -57,33 +62,18 @@ async function loadMessages(){
   );
 }
 
-// Загружаем пользователей из базы. До появления записей массив остаётся пустым.
-async function loadUsers(){
-  if (!db) return;
-
-  users.value = await db.select<User[]>(
-      "SELECT id, name FROM users ORDER BY id ASC",
-  );
-
-  // Если текущий пользователь ещё не выбран, выбираем первого из базы.
-  if (currentUserId.value === null && users.value.length > 0) {
-    currentUserId.value = users.value[0].id;
-  }
-}
-
-function selectUser(user: User){
-  currentUserId.value = user.id;
-}
-
 async function sendMessage(body: string){
   if (!db) return;
 
-  const author = users.value.find((user) => user.id === currentUserId.value)?.name ?? "Вы";
 
   await db.execute(
       "INSERT INTO messages (author, body) VALUES ($1, $2)",
-      [author, body]
-  )
+      [
+          currentUser.value.name,
+          body
+      ],
+  );
+
   await loadMessages()
 
 }
@@ -96,7 +86,6 @@ onMounted(async()=>{
 
     // загружаем из базы старые соо
     await loadMessages();
-    await loadUsers();
 
     // показываем успешное соединение
     status.value = "История сохраняется локально";
@@ -111,20 +100,30 @@ onMounted(async()=>{
 
 <template>
   <main class="app">
-  <AppHeader :status="status"/>
+  <AppHeader
+      :users="users"
+      :current-user-id="currentUser.id"
+      @select="selectUser"
+  />
     <section class = "chat">
       <div class="chat-info">
         <h2>Первый чат</h2>
-        <p2>локальный мессенджер</p2>
+        <p>локальный мессенджер</p>
       </div>
-      <UserSwitcher
-        :users="users"
-        :current-user-id="currentUserId"
-        @select="selectUser"
+      <MessageList
+          :messages="messages"
+          :current-user-name="currentUser.name"
       />
-      <MessageList :messages="messages"/>
-      <MessageComposer @send="sendMessage"/>
+      <MessageComposer
+          v-model="draft"
+          @send="sendMessage"
+          @toggle-emoji="isEmojiOpen = !isEmojiOpen"
+      />
     </section>
+    <EmojesList
+        v-if="isEmojiOpen"
+        @select="addEmoji"
+    />
   </main>
 </template>
 
@@ -186,6 +185,11 @@ onMounted(async()=>{
 .chat-info h2 {
   margin: 0;
   font-size: 16px;
+}
+
+.emoji-window{
+  flex: 40px;
+  color: red;
 }
 
 .chat-info p{

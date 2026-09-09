@@ -1,24 +1,31 @@
 <script setup lang="ts">
-import { ref } from "vue"
-
 // defineEmits сообщает vue какиеиз событий данный компонент в праве рассылать
 const emit = defineEmits<{
   send: [body:string];
+  "toggle-emoji": [];
+  "update:modelValue": [value: string];
 }>();
+const props = defineProps<{
+  modelValue: string
+}>()
 
-// тексткоторый пользователь вводит
-const draft = ref("");
+function updateDraft(event: Event) {
+  emit("update:modelValue", (event.target as HTMLInputElement).value)
+}
 
 // функция отправки нового соо
 function submitMessage(){
-  const body = draft.value.trim();
+  const body = props.modelValue.trim();
 
   if(!body) return;
 
   emit("send", body)
 
   // отчистка поля после отправки
-  draft.value = "";
+  emit("update:modelValue", "");
+}
+function openEmoji() {
+  emit("toggle-emoji")
 }
 
 </script>
@@ -30,11 +37,16 @@ function submitMessage(){
       @submit.prevent="submitMessage"
   >
     <input
-        v-model="draft"
+        :value="modelValue"
+        @input="updateDraft"
         type="text"
         placeholder="Напишите что-то"
         autocomplete="off"
     />
+    <button
+        type="button"
+        @click="openEmoji"
+    >Эмодзи</button>
     <button type="submit">Отправить</button>
   </form>
 
