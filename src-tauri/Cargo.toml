@@ -1,7 +1,7 @@
 [package]
-name = "stupiqplonde"
+name = "desire_mes"
 version = "0.1.0"
-description = "A Tauri App"
+description = "DesireMes messenger"
 authors = ["you"]
 edition = "2021"
 
@@ -11,20 +11,22 @@ edition = "2021"
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "stupiqplonde_lib"
+name = "desire_mes_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri-plugin-sql = { version = "2", features = ["sqlite"] }
+tauri-plugin-dialog = "2"
 
 # Не создаём большую отладочную базу PDB: на Windows она может превысить лимит
 # линкера при сборке Tauri (LNK1140).
 [profile.dev]
 debug = 0
+incremental = false

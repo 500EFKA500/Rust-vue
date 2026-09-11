@@ -19,10 +19,20 @@ pub fn run() {
             // up - база сдвинется вперед
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 2,
+            description: "add_image_path_to_messages",
+            sql: include_str!("../migrations/0002_add_image_path.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     // создаем сборщик приложения tauri
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(
+            tauri_plugin_dialog::init()
+        )
         .plugin(
             // сборщик плагинов
             tauri_plugin_sql::Builder::default()
