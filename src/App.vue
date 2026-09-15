@@ -3,6 +3,7 @@
 import type { Message } from "./types/messages.ts";
 import type { User } from "./types/user.ts";
 import AppHeader from "./components/AppHeader.vue";
+import ChatInfo from "./components/ChatInfo.vue";
 import EmojesList from "./components/EmojesList.vue";
 import Database from "@tauri-apps/plugin-sql"
 import MessageList from "./components/MessageList.vue";
@@ -106,10 +107,10 @@ onMounted(async()=>{
       @select="selectUser"
   />
     <section class = "chat">
-      <div class="chat-info">
-        <h2>Первый чат</h2>
-        <p>локальный мессенджер</p>
-      </div>
+      <ChatInfo
+          title="Первый чат"
+          description="Локальный мессенджер"
+      />
       <MessageList
           :messages="messages"
           :current-user-name="currentUser.name"
@@ -177,25 +178,9 @@ onMounted(async()=>{
   overflow: hidden;
 }
 
-.chat-info{
-  padding: 20px 24px;
-  border-bottom: 1px solid #8f96a3;
-}
-
-.chat-info h2 {
-  margin: 0;
-  font-size: 16px;
-}
-
 .emoji-window{
   flex: 40px;
   color: red;
-}
-
-.chat-info p{
-  margin: 5px 0 0;
-  color: #292c34;
-  font-size: 13px;
 }
 
 </style>
