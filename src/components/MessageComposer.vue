@@ -1,13 +1,21 @@
 <script setup lang="ts">
+import fileicon from "../assets/file.png"
+import emojeicon from "../assets/emoje.png"
+import {
+  open
+} from "@tauri-apps/plugin-dialog";
+
 // defineEmits сообщает vue какиеиз событий данный компонент в праве рассылать
 const emit = defineEmits<{
   send: [body:string];
   "toggle-emoji": [];
   "update:modelValue": [value: string];
+  image: [filePath: string]
 }>();
 const props = defineProps<{
   modelValue: string
 }>()
+
 
 function updateDraft(event: Event) {
   emit("update:modelValue", (event.target as HTMLInputElement).value)
@@ -24,6 +32,30 @@ function submitMessage(){
   // отчистка поля после отправки
   emit("update:modelValue", "");
 }
+
+async function addFile() {
+  // open - Открывает системный выбор файла
+  const file = await open({
+    multiple:false, // Запрещает выбрать несколько файлов
+
+    filters:[
+      {
+        name:"Images",
+
+        extensions:[
+          "png",
+          "jpg",
+          "jpeg",
+          "webp"
+        ]
+      }
+    ]
+  });
+  
+  if (typeof file !== "string") return
+
+  emit("image", file)
+}
 function openEmoji() {
   emit("toggle-emoji")
 }
@@ -36,6 +68,17 @@ function openEmoji() {
       class="composer"
       @submit.prevent="submitMessage"
   >
+    <button
+        type="button"
+        class="file-button"
+        @click="addFile"
+    >
+      <img
+          :src="fileicon"
+          alt=""
+          class="file-icon"
+      />
+    </button>
     <input
         :value="modelValue"
         @input="updateDraft"
@@ -45,8 +88,15 @@ function openEmoji() {
     />
     <button
         type="button"
+        class="emoji-button"
         @click="openEmoji"
-    >Эмодзи</button>
+    >
+      <img
+          :src="emojeicon"
+          alt=""
+          class="emoji-icon"
+      />
+    </button>
     <button type="submit">Отправить</button>
   </form>
 
@@ -62,6 +112,51 @@ function openEmoji() {
   border-top: 1px solid #252830;
   background: #17191f;
   flex-shrink: 0;
+}
+.emoji-button {
+  padding: 0 18px;
+  width: 44px;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  color: white;
+  background: #386be0;
+  font: inherit;
+  font-weight: 600;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.emoji-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  display: block;
+}
+
+.file-button {
+  padding: 0 18px;
+  width: 44px;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  color: white;
+  background: #386be0;
+  font: inherit;
+  font-weight: 600;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.file-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  display: block;
 }
 
 .composer input{

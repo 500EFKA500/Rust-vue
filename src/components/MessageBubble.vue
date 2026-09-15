@@ -1,11 +1,25 @@
 <script setup lang="ts">
 
 import type { Message} from "../types/messages.ts";
+import { computed } from "vue"
+import { convertFileSrc } from "@tauri-apps/api/core"
 
-defineProps<{
-  message: Message;
+const props = defineProps<{
+  message: Message
   isOwn: boolean
-}>();
+}>()
+
+const imageUrl = computed(() => {
+  const path = props.message.image_path
+
+  if (!path) return null
+
+  if (path.startsWith("/") || path.startsWith("http")) {
+    return path
+  }
+
+  return convertFileSrc(path)
+})
 </script>
 
 <template>
@@ -16,7 +30,13 @@ defineProps<{
         'message--other': !isOwn,
       }"
   >
-    <p>
+    <img
+        v-if="imageUrl"
+        :src="imageUrl"
+        class="message-image"
+    />
+
+    <p v-if="message.body">
       {{message.body}}
     </p>
     <footer>
@@ -63,5 +83,13 @@ defineProps<{
   margin-top: 6px;
   color: #ccd8f7;
   font-size: 10px;
+}
+
+.message-image {
+  display: block;
+  max-width: 280px;
+  max-height: 280px;
+  border-radius: 10px;
+  object-fit: contain;
 }
 </style>

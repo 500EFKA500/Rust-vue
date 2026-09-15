@@ -25,11 +25,16 @@ pub fn run() {
             sql: include_str!("../migrations/0002_add_image_path.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 3,
+            description: "create_chats",
+            sql: include_str!("../migrations/0003_chats.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     // создаем сборщик приложения tauri
     tauri::Builder::default()
-        .plugin(tauri_plugin_dialog::init())
         .plugin(
             tauri_plugin_dialog::init()
         )

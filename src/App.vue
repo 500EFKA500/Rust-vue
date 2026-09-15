@@ -7,6 +7,9 @@ import EmojesList from "./components/EmojesList.vue";
 import Database from "@tauri-apps/plugin-sql"
 import MessageList from "./components/MessageList.vue";
 import MessageComposer from "./components/MessageComposer.vue";
+import ChatsSidebar from "./components/chatsSidebar.vue";
+import ChatInfo from "./components/Chatinfo.vue";
+import type { Chat } from "./types/chats.ts";
 
 // импорт 2 фунции из vue
 // onMounted - запускает код после появления компонента
@@ -14,7 +17,6 @@ import MessageComposer from "./components/MessageComposer.vue";
 import { onMounted, ref } from "vue";
 const isEmojiOpen = ref(false);
 const draft = ref("")
-
 function addEmoji(emoji: string) {
   draft.value += emoji;
   isEmojiOpen.value = false;
@@ -40,25 +42,44 @@ const currentUser = ref<User>(oleg);
 function selectUser(user: User){
   currentUser.value = user;
 }
+const chats = ref<Chat[]>([]);
+const activeChat = ref<Chat | null>(null);
 
+const activeChatId = ref(1);
 // список соо которые vue отображает в диалоговом экране
 const messages = ref<Message[]>([]);
-
-// статус подключения
-const status = ref("Подключение...")
 
 // здесь будет подключение к бд
 // здесь будет подключение кд
 let db: Database | null = null;
 
 // асинхронная функция загрузки соо из sql
-async function loadMessages(){
+
+async function sendImage(filePath: string) {
+  if (!db) return;
+  if (!activeChat.value) return;
+
+  await db.execute(
+      `INSERT INTO messages (chat_id, author, body, image_path)
+     VALUES ($1, $2, $3, $4)`,
+      [
+        activeChat.value.id,
+        currentUser.value.name,
+        "",
+        filePath,
+      ],
+  )
+
+  await loadMessages(activeChat.value.id)
+}
+async function loadMessages(chatId: number){
   // если база не подключена прерываем выполнение
   if (!db) return;
 
   // читаем данные
   messages.value = await db.select<Message[]>(
-      "SELECT id, author, body, created_at FROM messages ORDER BY id ASC",
+      "SELECT id, author, body, image_path, created_at FROM messages WHERE chat_id = $1 ORDER BY id ASC",
+      [chatId]
   );
 }
 
@@ -66,18 +87,46 @@ async function sendMessage(body: string){
   if (!db) return;
 
 
+  if (!activeChat.value) return;
+
   await db.execute(
-      "INSERT INTO messages (author, body) VALUES ($1, $2)",
+    `
+      INSERT INTO messages (
+            chat_id,
+            author,
+            body
+      )
+      VALUES ($1, $2, $3)
+    `,
       [
+          activeChat.value.id,
           currentUser.value.name,
-          body
+          body,
       ],
   );
 
-  await loadMessages()
+  await loadMessages(activeChat.value.id)
 
 }
+async function loadChats(){
+  if (!db) return;
 
+  chats.value = await db.select<Chat[]>(
+      "SELECT id, title, subtitle FROM chats ORDER BY id ASC"
+  )
+
+  if (chats.value.length > 0){
+    await selectChat(chats.value[0]);
+  }
+}
+
+async function selectChat(chat: Chat){
+  activeChat.value = chat;
+
+  activeChatId.value = chat.id
+
+  await loadMessages(chat.id)
+}
 // VUE выполнит код ниже, когда интерфейс загружен
 onMounted(async()=>{
   try{
@@ -85,14 +134,10 @@ onMounted(async()=>{
     db = await Database.load("sqlite:messanger.db");
 
     // загружаем из базы старые соо
-    await loadMessages();
+    await loadChats();
 
-    // показываем успешное соединение
-    status.value = "История сохраняется локально";
   } catch (error){
     console.error(error);
-
-    status.value = "Ошибка подключения к базе"
   }
 });
 
@@ -105,25 +150,39 @@ onMounted(async()=>{
       :current-user-id="currentUser.id"
       @select="selectUser"
   />
-    <section class = "chat">
-      <div class="chat-info">
-        <h2>Первый чат</h2>
-        <p>локальный мессенджер</p>
-      </div>
-      <MessageList
-          :messages="messages"
-          :current-user-name="currentUser.name"
+    <div class="workspace">
+      <ChatsSidebar
+          :chats="chats"
+          :active-chat-id="activeChatId"
+          @select="selectChat"
       />
-      <MessageComposer
-          v-model="draft"
-          @send="sendMessage"
-          @toggle-emoji="isEmojiOpen = !isEmojiOpen"
-      />
-    </section>
-    <EmojesList
-        v-if="isEmojiOpen"
-        @select="addEmoji"
-    />
+      <section class = "chat">
+        <template v-if="activeChat">
+          <ChatInfo
+            :title="activeChat.title"
+            :subtitle="activeChat.subtitle"
+          />
+          <MessageList
+              :messages="messages"
+              :current-user-name="currentUser.name"
+          />
+          <MessageComposer
+              v-model="draft"
+              @send="sendMessage"
+              @toggle-emoji="isEmojiOpen = !isEmojiOpen"
+              @image="sendImage"
+          />
+          <EmojesList
+              v-if="isEmojiOpen"
+              @select="addEmoji"
+              @image="sendImage"
+          />
+        </template>
+
+      </section>
+    </div>
+
+
   </main>
 </template>
 
@@ -154,6 +213,13 @@ onMounted(async()=>{
   background: #111318;
 }
 
+.workspace{
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
 .app{
   height: 100vh;
   display: flex;
@@ -175,27 +241,6 @@ onMounted(async()=>{
       Потому что chat целиком не должен прокручиаться, только
   */
   overflow: hidden;
-}
-
-.chat-info{
-  padding: 20px 24px;
-  border-bottom: 1px solid #8f96a3;
-}
-
-.chat-info h2 {
-  margin: 0;
-  font-size: 16px;
-}
-
-.emoji-window{
-  flex: 40px;
-  color: red;
-}
-
-.chat-info p{
-  margin: 5px 0 0;
-  color: #292c34;
-  font-size: 13px;
 }
 
 </style>

@@ -1,0 +1,9 @@
+[build]
+# Tauri/Rust dependencies are large on Windows. Keep generated build artifacts
+# off the nearly full system drive; this folder can be deleted and rebuilt.
+target-dir = "D:/DesireMes-target"
+
+[profile.dev]
+# This messenger does not need an incremental compiler cache during development.
+# Disabling it reduces temporary disk usage substantially.
+incremental = false
