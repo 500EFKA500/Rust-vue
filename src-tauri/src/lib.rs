@@ -35,6 +35,25 @@ fn save_attachment(app: tauri::AppHandle, source: String) -> Result<String, Stri
     Ok(destination.to_string_lossy().into_owned())
 }
 
+#[tauri::command]
+fn read_attachment(app: tauri::AppHandle, path: String) -> Result<Vec<u8>, String> {
+    let attachments_dir = app.path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("attachments")
+        .canonicalize()
+        .map_err(|e| e.to_string())?;
+    let attachment_path = std::path::Path::new(&path)
+        .canonicalize()
+        .map_err(|e| e.to_string())?;
+
+    if !attachment_path.starts_with(&attachments_dir) {
+        return Err("Файл находится вне папки вложений".to_string());
+    }
+
+    std::fs::read(attachment_path).map_err(|e| e.to_string())
+}
+
 
 // Главная функция для запуска приложения
 pub fn run() {
@@ -77,7 +96,7 @@ pub fn run() {
                 // Собираем плагины
                 .build(),
         )
-        .invoke_handler(tauri::generate_handler![save_attachment])
+        .invoke_handler(tauri::generate_handler![save_attachment, read_attachment])
         // Создаем plugin opener
         .plugin(tauri_plugin_opener::init())
         // Запускаем приложение

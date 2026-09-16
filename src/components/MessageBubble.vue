@@ -1,18 +1,44 @@
 <script setup lang="ts">
 
 import type { Message } from "../types/message.ts";
-import { convertFileSrc } from "@tauri-apps/api/core";
-import { computed } from "vue";
+import { invoke } from "@tauri-apps/api/core";
+import { onBeforeUnmount, ref, watch } from "vue";
 
 const props = defineProps<{
   message: Message;
   isOwn: boolean;
 }>();
 
-const imageUrl = computed(() => {
-  if (!props.message.image_path) return null;
-  return convertFileSrc(props.message.image_path);
-});
+const imageUrl = ref<string | null>(null);
+const attachmentError = ref(false);
+
+function revokeImageUrl() {
+  if (imageUrl.value) URL.revokeObjectURL(imageUrl.value);
+  imageUrl.value = null;
+}
+
+function imageMimeType(path: string) {
+  const extension = path.split(".").pop()?.toLowerCase();
+  return extension === "jpg" || extension === "jpeg" ? "image/jpeg" : `image/${extension ?? "png"}`;
+}
+
+async function loadAttachment(path: string | null) {
+  revokeImageUrl();
+  attachmentError.value = false;
+  if (!path) return;
+
+  try {
+    const bytes = await invoke<number[]>("read_attachment", { path });
+    const blob = new Blob([new Uint8Array(bytes)], { type: imageMimeType(path) });
+    imageUrl.value = URL.createObjectURL(blob);
+  } catch (error) {
+    console.error(error);
+    attachmentError.value = true;
+  }
+}
+
+watch(() => props.message.image_path, loadAttachment, { immediate: true });
+onBeforeUnmount(revokeImageUrl);
 </script>
 
 <template>
@@ -24,6 +50,7 @@ const imageUrl = computed(() => {
       }"
   >
     <img v-if="imageUrl" :src="imageUrl" alt="Вложение" class="message-image" />
+    <p v-else-if="attachmentError" class="attachment-error">Не удалось открыть вложение</p>
     <p v-if="message.body">
       {{message.body}}
     </p>
@@ -79,6 +106,10 @@ const imageUrl = computed(() => {
   max-height: 280px;
   border-radius: 8px;
   object-fit: contain;
+}
+
+.attachment-error {
+  margin: 0;
 }
 
 </style>

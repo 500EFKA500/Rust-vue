@@ -26,7 +26,7 @@ function submitMessage(){
   draft.value = "";
 }
 
-async function attachImage(){
+async function addFile() {
   attachmentError.value = "";
 
   const source = await open({
@@ -58,7 +58,7 @@ async function attachImage(){
         placeholder="Ну пиши уже че нить"
         autocomplete="off"
     />
-    <button type="button" class="file-button" @click="attachImage">
+    <button type="button" class="file-button" @click="addFile">
       <img :src="fileicon" alt="Прикрепить файл" class="file-icon" />
     </button>
     <button type="submit">Отправить</button>

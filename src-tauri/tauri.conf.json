@@ -22,8 +22,7 @@
       "assetProtocol": {
         "enable": true,
         "scope": [
-          "$PICTURE/**",
-          "$APPDATA/com.admin.desiremes/attachments/**"
+          "$PICTURE/**"
         ]
       }
     }
