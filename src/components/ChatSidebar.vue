@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Chat } from "../types/chats.ts"
+import type { Chat } from "../types/chats";
 
 defineProps<{
   chats: Chat[];
@@ -15,6 +15,7 @@ function selectChat(chat: Chat){
   emit("select", chat);
 }
 </script>
+
 <template>
 <aside class="sidebar">
   <div class="sidebar__header">
@@ -34,11 +35,11 @@ function selectChat(chat: Chat){
       @click="selectChat(chat)"
     >
       <strong class="chat-button__title">
-        {{chat.title}}
+        {{ chat.title }}
       </strong>
 
       <span class="chat-button__subtitle">
-        {{chat.subtitle}}
+        {{ chat.subtitle }}
       </span>
     </button>
   </div>
@@ -74,6 +75,7 @@ function selectChat(chat: Chat){
 
 .chat-button{
   width: 100%;
+
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -102,4 +104,6 @@ function selectChat(chat: Chat){
   color: #858c98;
   font-size: 12px;
 }
+
+
 </style>

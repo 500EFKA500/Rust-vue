@@ -1,14 +1,14 @@
--- создание таблицы сообщений
+-- Создание таблицы сообщений
 CREATE TABLE IF NOT EXISTS messages (
-  -- уникальный номер соо
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+    -- Уникальный номер сообщения
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-  -- имя автора соо
-  author TEXT NOT NULL,
+    -- Имя автора сообщения
+    author TEXT NOT NULL,
 
-  -- текст соо
-  body TEXT NOT NULL,
+    -- Текст сообщения
+    body TEXT NOT NULL,
 
-  -- время создания
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    -- Время создания
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

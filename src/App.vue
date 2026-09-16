@@ -1,26 +1,25 @@
 <script setup lang="ts">
 
-import type { Message } from "./types/messages.ts";
-import type { User } from "./types/user.ts";
-import AppHeader from "./components/AppHeader.vue";
-import EmojesList from "./components/EmojesList.vue";
-import Database from "@tauri-apps/plugin-sql"
-import MessageList from "./components/MessageList.vue";
-import MessageComposer from "./components/MessageComposer.vue";
-import ChatsSidebar from "./components/chatsSidebar.vue";
-import ChatInfo from "./components/Chatinfo.vue";
-import type { Chat } from "./types/chats.ts";
+import type { User } from "./types/user";
 
-// импорт 2 фунции из vue
+// Импорт 2 функций из vue
 // onMounted - запускает код после появления компонента
-// ref -создает быстрое перемещение
+// ref -  создает быстрые перемещения
 import { onMounted, ref } from "vue";
-const isEmojiOpen = ref(false);
-const draft = ref("")
-function addEmoji(emoji: string) {
-  draft.value += emoji;
-  isEmojiOpen.value = false;
-}
+
+import Database from "@tauri-apps/plugin-sql";
+
+import AppHeader from "./components/AppHeader.vue";
+
+import MessageList from "./components/MessageList.vue";
+
+import MessageComposer from "./components/MessageComposer.vue";
+
+import ChatSidebar from "./components/ChatSidebar.vue";
+
+import type { Chat } from "./types/chats";
+
+import type { Message } from "./types/message.ts";
 
 const oleg: User = {
   id: 1,
@@ -29,10 +28,10 @@ const oleg: User = {
 
 const kirill: User = {
   id: 2,
-  name: "Киррил",
+  name: "Кирилл",
 };
 
-const users: User[] = [
+const users: User[] =[
   oleg,
   kirill,
 ];
@@ -42,78 +41,30 @@ const currentUser = ref<User>(oleg);
 function selectUser(user: User){
   currentUser.value = user;
 }
+
+// Создаем структуру одного сообщения
+
+// Список сообщений, которые vue отображет в диалоге на экране
+const messages = ref<Message[]>([]);
+
 const chats = ref<Chat[]>([]);
+
 const activeChat = ref<Chat | null>(null);
 
 const activeChatId = ref(1);
-// список соо которые vue отображает в диалоговом экране
-const messages = ref<Message[]>([]);
 
-// здесь будет подключение к бд
-// здесь будет подключение кд
+// Статус подключения к бд
+const status = ref("Подключение...")
+
+// Здесь будет подключение к бд (честно), но пока тут null
 let db: Database | null = null;
 
-// асинхронная функция загрузки соо из sql
-
-async function sendImage(filePath: string) {
-  if (!db) return;
-  if (!activeChat.value) return;
-
-  await db.execute(
-      `INSERT INTO messages (chat_id, author, body, image_path)
-     VALUES ($1, $2, $3, $4)`,
-      [
-        activeChat.value.id,
-        currentUser.value.name,
-        "",
-        filePath,
-      ],
-  )
-
-  await loadMessages(activeChat.value.id)
-}
-async function loadMessages(chatId: number){
-  // если база не подключена прерываем выполнение
-  if (!db) return;
-
-  // читаем данные
-  messages.value = await db.select<Message[]>(
-      "SELECT id, author, body, image_path, created_at FROM messages WHERE chat_id = $1 ORDER BY id ASC",
-      [chatId]
-  );
-}
-
-async function sendMessage(body: string){
-  if (!db) return;
-
-
-  if (!activeChat.value) return;
-
-  await db.execute(
-    `
-      INSERT INTO messages (
-            chat_id,
-            author,
-            body
-      )
-      VALUES ($1, $2, $3)
-    `,
-      [
-          activeChat.value.id,
-          currentUser.value.name,
-          body,
-      ],
-  );
-
-  await loadMessages(activeChat.value.id)
-
-}
 async function loadChats(){
   if (!db) return;
 
   chats.value = await db.select<Chat[]>(
-      "SELECT id, title, subtitle FROM chats ORDER BY id ASC"
-  )
+    "SELECT id, title, subtitle FROM chats ORDER BY id ASC",
+  );
 
   if (chats.value.length > 0){
     await selectChat(chats.value[0]);
@@ -123,21 +74,62 @@ async function loadChats(){
 async function selectChat(chat: Chat){
   activeChat.value = chat;
 
-  activeChatId.value = chat.id
+  activeChatId.value = chat.id;
 
-  await loadMessages(chat.id)
+  await loadMessages(chat.id);
 }
-// VUE выполнит код ниже, когда интерфейс загружен
+
+// Асинхронная функция загрузки сообщений из sql
+async function loadMessages(chatId: number){
+  // Если база еще не подключена, прерываем выполнение
+  if (!db) return;
+
+  // Читаем данные из таблицы messages
+  messages.value = await db.select<Message[]>(
+    "SELECT id, author, body, created_at FROM messages WHERE chat_id = $1 ORDER BY id ASC",
+      [chatId],
+  );
+}
+
+// Функция отправки нового сообщения
+async function sendMessage(body: string){
+  if (!db) return;
+
+  if (!activeChat.value) return;
+
+  await db.execute(
+    `
+       INSERT INTO messages (
+            chat_id,
+            author,
+            body
+       )
+       VALUES ($1, $2, $3)
+    `,
+      [
+          activeChat.value.id,
+          currentUser.value.name,
+          body,
+      ],
+  );
+  await loadMessages(activeChat.value.id)
+}
+
+// VUE выполнит код ниже, когда интерфейс программы уже загрузится
 onMounted(async()=>{
   try{
     // Открываем бд
-    db = await Database.load("sqlite:messanger.db");
+    db = await Database.load("sqlite:messenger.db");
 
-    // загружаем из базы старые соо
+    // Загружаем из базы старые сообщения
     await loadChats();
 
-  } catch (error){
+    // Показываем успешеное состоние
+    status.value = "История сохраняется локально";
+  }catch (error){
     console.error(error);
+
+    status.value = "Ошибка подключения к базе";
   }
 });
 
@@ -145,18 +137,19 @@ onMounted(async()=>{
 
 <template>
   <main class="app">
-  <AppHeader
-      :users="users"
-      :current-user-id="currentUser.id"
-      @select="selectUser"
-  />
+    <AppHeader
+        :status="status"
+        :users="users"
+        :current-user="currentUser"
+        @select="selectUser"
+    />
     <div class="workspace">
-      <ChatsSidebar
+      <ChatSidebar
           :chats="chats"
           :active-chat-id="activeChatId"
           @select="selectChat"
       />
-      <section class = "chat">
+      <section class="chat">
         <template v-if="activeChat">
           <ChatInfo
             :title="activeChat.title"
@@ -166,28 +159,15 @@ onMounted(async()=>{
               :messages="messages"
               :current-user-name="currentUser.name"
           />
-          <MessageComposer
-              v-model="draft"
-              @send="sendMessage"
-              @toggle-emoji="isEmojiOpen = !isEmojiOpen"
-              @image="sendImage"
-          />
-          <EmojesList
-              v-if="isEmojiOpen"
-              @select="addEmoji"
-              @image="sendImage"
-          />
+          <MessageComposer @send="sendMessage" />
         </template>
-
       </section>
     </div>
-
-
   </main>
 </template>
 
 <style scoped>
-/* все элементы будут использовать одну модель размера */
+/* Все элементы будут использовать одну модель размеров */
 :global(*){
   box-sizing: border-box;
 }
@@ -225,22 +205,44 @@ onMounted(async()=>{
   display: flex;
   flex-direction: column;
   /*
-      запрещает всему app прокурчиваться
-      Разрешим пркоурутку только для MessageList
+      Запретит всему app прокручиваться
+      Разрешим прокрутку только для MessageList
   */
   overflow: hidden;
 }
-
 
 .chat{
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  /*
-      Потому что chat целиком не должен прокручиаться, только
-  */
-  overflow: hidden;
+  overflow: hidden; /* Потому что chat целиком не должен прокручиваться, только MessageList внутри него */
+}
+
+.chat-info{
+  padding: 20px 24px;
+  border-bottom: 1px solid #252830;
+}
+
+.chat-info h2{
+  margin: 0;
+  font-size: 16px;
+}
+
+.chat-info p{
+  margin: 5px 0 0;
+  color: #858c98;
+  font-size: 13px;
 }
 
 </style>
+
+
+
+
+
+
+
+
+
+

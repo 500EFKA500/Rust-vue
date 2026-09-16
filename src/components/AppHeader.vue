@@ -1,71 +1,88 @@
 <script setup lang="ts">
-import type { User } from "../types/user.ts";
+
+import UserSwitcher from "./UserSwitcher.vue";
+
+import type { User } from "../types/user";
+
+// defineProps - спец конструкция vue, которая сообщает:
+// Этот компонент ожидает получения данных от родительского компонента
 
 defineProps<{
+  status: string;
   users: User[];
-
-  currentUserId: number;
+  currentUser: User;
 }>();
 
 const emit = defineEmits<{
   select: [user: User];
-}>()
+}>();
 
 function selectUser(user: User){
   emit("select", user);
 }
-
 </script>
 
 <template>
-  <div class="user-switcher">
-    <span class="user-switcher__label">
-      Пишет:
-    </span>
-    <button
-        v-for="user in users"
-        :key="user.id"
-        type="button"
-        class="user-switcher__button"
+  <header class="header">
+    <div>`
+      <h1>Encore 67 messenger</h1>
 
-        :class="{
-          'user-switcher__button--active':
-          user.id === currentUserId
-        }"
+      <p>{{status}}</p>
+    </div>
 
-        @click="selectUser(user)"
-    >
-      {{ user.name }}
-    </button>
-  </div>
+    <div class="header__actions">
+      <UserSwitcher
+          :users="users"
+          :current-user-id="currentUser.id"
+          @select="selectUser"
+      />
+    </div>
+    <span class="badge">
+        Локально
+      </span>
+  </header>
 </template>
 
 <style scoped>
-.user-switcher{
+/*
+  CSS этого блока будет относиться только к текущему vue компоненту
+  Например .header не повлияет на любой другой .header в коде вне этого компонента
+*/
+
+.header{
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+  padding: 18px 24px;
+  border-bottom: 1px solid #292c34;
+  background: #17191f;
+  /* Управляет тем, может ли flex уменьшать элемент*/
+  flex-shrink: 0;
 }
 
-.user-switcher__label{
+.header__actions{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.header p{
+  margin: 4px 0 0;
   color: #8f96a3;
-  font-size: 12px;
 }
 
-.user-switcher__button{
+.badge{
   padding: 6px 10px;
   border: 1px solid #343842;
   border-radius: 6px;
-  cursor: pointer;
-  background: #20232a;
   color: #afb5c0;
-  font: inherit;
+  background: #20232a;
   font-size: 12px;
 }
 
-.user-switcher__button--active{
-  background: #386be0;
-  border-color: #386be0;
-  color: white;
-}
 </style>

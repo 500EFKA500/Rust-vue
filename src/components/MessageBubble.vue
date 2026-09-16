@@ -1,25 +1,11 @@
 <script setup lang="ts">
 
-import type { Message} from "../types/messages.ts";
-import { computed } from "vue"
-import { convertFileSrc } from "@tauri-apps/api/core"
+import type { Message } from "../types/message.ts";
 
-const props = defineProps<{
-  message: Message
-  isOwn: boolean
-}>()
-
-const imageUrl = computed(() => {
-  const path = props.message.image_path
-
-  if (!path) return null
-
-  if (path.startsWith("/") || path.startsWith("http")) {
-    return path
-  }
-
-  return convertFileSrc(path)
-})
+defineProps<{
+  message: Message;
+  isOwn: boolean;
+}>();
 </script>
 
 <template>
@@ -30,18 +16,12 @@ const imageUrl = computed(() => {
         'message--other': !isOwn,
       }"
   >
-    <img
-        v-if="imageUrl"
-        :src="imageUrl"
-        class="message-image"
-    />
-
-    <p v-if="message.body">
+    <p>
       {{message.body}}
     </p>
     <footer>
             <span>
-              {{message.author}}
+              {{ message.author}}
             </span>
       <span>
               |
@@ -67,7 +47,7 @@ const imageUrl = computed(() => {
 }
 .message--other{
   align-self: flex-start;
-  background: #8694b8;
+  background: #252830;
 }
 
 .message p{
@@ -81,15 +61,8 @@ const imageUrl = computed(() => {
   justify-content: flex-end;
   gap: 5px;
   margin-top: 6px;
-  color: #ccd8f7;
+  color: #b5bbc7;
   font-size: 10px;
 }
 
-.message-image {
-  display: block;
-  max-width: 280px;
-  max-height: 280px;
-  border-radius: 10px;
-  object-fit: contain;
-}
 </style>

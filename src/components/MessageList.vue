@@ -1,21 +1,21 @@
 <script setup lang="ts">
 import {
-  nextTick,       // Позволяет дождаться моментка, когда Vue обновит HTML
+  nextTick,       // Позволяет дождаться момента, когда Vue обновит HTML
   onMounted,
-  useTemplateRef, // Дает возможность получить ссылку на html-элемент из tamplate
-  watch,          // Позволяет следить за изменением выбранных данных
+  useTemplateRef, // Дает возможность получить ссылку на html-элемент из template
+  watch,          // озволяет следть за изменение выбранных данных
 } from "vue";
 
 import MessageBubble from "./MessageBubble.vue";
 
-import type {Message} from "../types/messages.ts";
+import type {Message} from "../types/message.ts";
 
 const props = defineProps<{
   messages: Message[];
   currentUserName: string;
 }>();
 
-const bottomAnchor = useTemplateRef<HTMLDivElement>("bottom-anchor")
+const bottomAnchor = useTemplateRef<HTMLDivElement>("bottom-anchor");
 
 async function scrollToBottom(){
   /* Нужно дождаться обновления DOM */
@@ -42,27 +42,29 @@ onMounted(scrollToBottom);
 
 <template>
   <div class="messages">
+    <!-- Данный див будет отображаться когда сообщений нет -->
     <div class="messages-inner">
       <div
           v-if="messages.length === 0"
           class="empty"
       >
         <strong> Здесь пока пусто </strong>
-        <span> Напишите первое сообщение</span>
+        <span> Напишите первое сообщение </span>
       </div>
-
+      <!-- Vue создает article для каждого сообщения из базы -->
       <MessageBubble
           v-for="message in messages"
           :key="message.id"
           :message="message"
           :is-own="message.author === currentUserName"
       />
+      <div
+        ref="bottom-anchor"
+        class="bottom-anchor"
+        aria-hidden="true"
+      >
+      </div>
     </div>
-    <div
-      ref="bottom-anchor"
-      class="bottom-anchor"
-      aria-hidden="true"
-    ></div>
   </div>
 </template>
 
@@ -94,4 +96,5 @@ onMounted(scrollToBottom);
   text-align: center;
   color: #858c98;
 }
+
 </style>

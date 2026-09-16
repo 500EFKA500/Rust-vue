@@ -9,12 +9,11 @@ defineProps<{
 
 const emit = defineEmits<{
   select: [user: User];
-}>()
+}>();
 
 function selectUser(user: User){
   emit("select", user);
 }
-
 </script>
 
 <template>
@@ -23,22 +22,23 @@ function selectUser(user: User){
       Пишет:
     </span>
     <button
-        v-for="user in users"
-        :key="user.id"
-        type="button"
-        class="user-switcher__button"
+      v-for="user in users"
+      :key="user.id"
+      type="button"
+      class="user-switcher__button"
 
-        :class="{
-          'user-switcher__button--active':
-          user.id === currentUserId
-        }"
+      :class="{
+        'user-switcher__button--active':
+        user.id === currentUserId
+      }"
 
-        @click="selectUser(user)"
-      >
-      {{ user.name }}
+      @click="selectUser(user)"
+    >
+     {{ user.name }}
     </button>
   </div>
 </template>
+
 
 <style scoped>
 .user-switcher{
