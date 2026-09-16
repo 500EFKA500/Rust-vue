@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {ref} from "vue";
+import fileicon from "../assets/file.png";
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -57,8 +58,8 @@ async function attachImage(){
         placeholder="Ну пиши уже че нить"
         autocomplete="off"
     />
-    <button type="button" class="attachment-button" @click="attachImage">
-      Прикрепить
+    <button type="button" class="file-button" @click="attachImage">
+      <img :src="fileicon" alt="Прикрепить файл" class="file-icon" />
     </button>
     <button type="submit">Отправить</button>
   </form>
@@ -102,8 +103,19 @@ async function attachImage(){
   font-weight: 600;
 }
 
-.attachment-button {
-  background: #343842;
+.file-button {
+  width: 44px;
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.file-icon {
+  display: block;
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
 }
 
 .attachment-error {
