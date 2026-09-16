@@ -68,6 +68,7 @@ pub fn run() {
 
     // Создаем сбощик приложения Tauri
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(
             // Сборщик плагинов
             tauri_plugin_sql::Builder::default()
