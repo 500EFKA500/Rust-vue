@@ -54,14 +54,14 @@ pub fn run() {
         },
         Migration {
             version: 2,
-            description: "add_image_path_to_messages",
-            sql: include_str!("../migrations/0002_add_image_path.sql"),
+            description: "create_chats",
+            sql: include_str!("../migrations/0002_chats.sql"),
             kind: MigrationKind::Up,
         },
         Migration {
             version: 3,
-            description: "create_chats",
-            sql: include_str!("../migrations/0003_chats.sql"),
+            description: "add_image_path_to_messages",
+            sql: include_str!("../migrations/0003_add_image_path.sql"),
             kind: MigrationKind::Up,
         }
     ];
