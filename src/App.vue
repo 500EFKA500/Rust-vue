@@ -86,9 +86,20 @@ async function loadMessages(chatId: number){
 
   // Читаем данные из таблицы messages
   messages.value = await db.select<Message[]>(
-    "SELECT id, author, body, created_at FROM messages WHERE chat_id = $1 ORDER BY id ASC",
+    "SELECT id, author, body, image_path, created_at FROM messages WHERE chat_id = $1 ORDER BY id ASC",
       [chatId],
   );
+}
+
+async function sendImage(imagePath: string){
+  if (!db || !activeChat.value) return;
+
+  await db.execute(
+    "INSERT INTO messages (chat_id, author, body, image_path) VALUES ($1, $2, $3, $4)",
+    [activeChat.value.id, currentUser.value.name, "", imagePath],
+  );
+
+  await loadMessages(activeChat.value.id);
 }
 
 // Функция отправки нового сообщения
@@ -159,7 +170,7 @@ onMounted(async()=>{
               :messages="messages"
               :current-user-name="currentUser.name"
           />
-          <MessageComposer @send="sendMessage" />
+          <MessageComposer @send="sendMessage" @image="sendImage" />
         </template>
       </section>
     </div>

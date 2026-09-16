@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import {ref} from "vue";
-
+import { open } from "@tauri-apps/plugin-dialog";
+import { invoke } from "@tauri-apps/api/core";
 
 // defineEmits - сообщает vue, какие из событий, данный
 // компонент имеет право рассылать
 const emit = defineEmits<{
   send: [body:string];
+  image: [filePath: string];
 }>();
 
 const draft = ref("");
+const attachmentError = ref("");
 
 function submitMessage(){
   // Взять введенный пользователем текст и убрать проблемы по краям
@@ -20,6 +23,26 @@ function submitMessage(){
 
   // После отправки очищаем поле ввода
   draft.value = "";
+}
+
+async function attachImage(){
+  attachmentError.value = "";
+
+  const source = await open({
+    multiple: false,
+    directory: false,
+    filters: [{ name: "Изображения", extensions: ["png", "jpg", "jpeg", "gif", "webp"] }],
+  });
+
+  if (!source || Array.isArray(source)) return;
+
+  try {
+    const savedPath = await invoke<string>("save_attachment", { source });
+    emit("image", savedPath);
+  } catch (error) {
+    console.error(error);
+    attachmentError.value = "Не удалось прикрепить изображение";
+  }
 }
 </script>
 
@@ -34,8 +57,12 @@ function submitMessage(){
         placeholder="Ну пиши уже че нить"
         autocomplete="off"
     />
+    <button type="button" class="attachment-button" @click="attachImage">
+      Прикрепить
+    </button>
     <button type="submit">Отправить</button>
   </form>
+  <p v-if="attachmentError" class="attachment-error">{{ attachmentError }}</p>
 </template>
 
 <style scoped>
@@ -73,6 +100,17 @@ function submitMessage(){
   background: #386be0;
   font: inherit;
   font-weight: 600;
+}
+
+.attachment-button {
+  background: #343842;
+}
+
+.attachment-error {
+  margin: 0;
+  padding: 0 20px 10px;
+  color: #ff9b9b;
+  font-size: 12px;
 }
 
 </style>

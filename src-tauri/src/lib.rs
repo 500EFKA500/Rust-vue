@@ -1,17 +1,16 @@
 // Импорт типов, необходимых для migrations
 use tauri_plugin_sql::{Migration, MigrationKind};
+use tauri::Manager;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 // Аннотация небходимая Tauri для мобильных платформ
 // На Win она не мешает
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 #[tauri::command]
-fn save_attachment(source: String) -> Result<String, String> {
-    let app_dir = std::env::current_dir() // Проверка где запущенно приложение
-        .map_err(|e| e.to_string())?; // Функция возможностей ошибки (нет доступа)
-
-    let attachment_dir = app_dir.join("attachment");
-    // join - буквально создат к существующему пути до папки новую папку "atttachment"
+fn save_attachment(app: tauri::AppHandle, source: String) -> Result<String, String> {
+    let app_dir = app.path().app_data_dir()
+        .map_err(|e| e.to_string())?;
+    let attachment_dir = app_dir.join("attachments");
 
     std::fs::create_dir_all(&attachment_dir)
         .map_err(|e| e.to_string())?;
@@ -20,7 +19,11 @@ fn save_attachment(source: String) -> Result<String, String> {
         .duration_since(UNIX_EPOCH)
         .map_err(|e| e.to_string())?
         .as_millis();
-    let file_name = format!("image_{timestamp}.png");
+    let extension = std::path::Path::new(&source)
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("png");
+    let file_name = format!("image_{timestamp}.{extension}");
 
     let destination = attachment_dir.join(&file_name);
 
@@ -29,12 +32,7 @@ fn save_attachment(source: String) -> Result<String, String> {
         &destination
     )
         .map_err(|e| e.to_string())?;
-    Ok(
-        format!(
-            "attachment '{}' successfully created"
-            , file_name
-        )
-    )
+    Ok(destination.to_string_lossy().into_owned())
 }
 
 
@@ -56,8 +54,14 @@ pub fn run() {
         },
         Migration {
             version: 2,
+            description: "add_image_path_to_messages",
+            sql: include_str!("../migrations/0002_add_image_path.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 3,
             description: "create_chats",
-            sql: include_str!("../migrations/0002_chats.sql"),
+            sql: include_str!("../migrations/0003_chats.sql"),
             kind: MigrationKind::Up,
         }
     ];
