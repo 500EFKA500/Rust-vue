@@ -28,7 +28,7 @@ async function loadAttachment(path: string | null) {
   if (!path) return;
 
   try {
-    const bytes = await invoke<number[]>("read_attachment", { path });
+    const bytes = await invoke<number[]>("read_attachment", { attachmentId: path });
     const blob = new Blob([new Uint8Array(bytes)], { type: imageMimeType(path) });
     imageUrl.value = URL.createObjectURL(blob);
   } catch (error) {

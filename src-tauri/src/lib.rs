@@ -32,20 +32,28 @@ fn save_attachment(app: tauri::AppHandle, source: String) -> Result<String, Stri
         &destination
     )
         .map_err(|e| e.to_string())?;
-    Ok(destination.to_string_lossy().into_owned())
+    // Во фронтенд и SQLite отдаём только идентификатор вложения,
+    // а не путь к файлу в операционной системе.
+    Ok(file_name)
 }
 
 #[tauri::command]
-fn read_attachment(app: tauri::AppHandle, path: String) -> Result<Vec<u8>, String> {
+fn read_attachment(app: tauri::AppHandle, attachment_id: String) -> Result<Vec<u8>, String> {
     let attachments_dir = app.path()
         .app_data_dir()
         .map_err(|e| e.to_string())?
         .join("attachments")
         .canonicalize()
         .map_err(|e| e.to_string())?;
-    let attachment_path = std::path::Path::new(&path)
-        .canonicalize()
-        .map_err(|e| e.to_string())?;
+    let supplied_path = std::path::Path::new(&attachment_id);
+    let attachment_path = if supplied_path.is_absolute() {
+        // Поддержка ранее сохранённых сообщений, где был записан полный путь.
+        supplied_path.to_path_buf()
+    } else {
+        attachments_dir.join(supplied_path)
+    }
+    .canonicalize()
+    .map_err(|e| e.to_string())?;
 
     if !attachment_path.starts_with(&attachments_dir) {
         return Err("Файл находится вне папки вложений".to_string());
