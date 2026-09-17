@@ -6,6 +6,7 @@ import AppHeader from "./components/AppHeader.vue";
 import ChatInfo from "./components/ChatInfo.vue";
 import EmojesList from "./components/EmojesList.vue";
 import Database from "@tauri-apps/plugin-sql"
+import { open } from "@tauri-apps/plugin-dialog";
 import MessageList from "./components/MessageList.vue";
 import MessageComposer from "./components/MessageComposer.vue";
 
@@ -15,6 +16,7 @@ import MessageComposer from "./components/MessageComposer.vue";
 import { onMounted, ref } from "vue";
 const isEmojiOpen = ref(false);
 const draft = ref("")
+const attachmentPath = ref<string | null>(null);
 
 function addEmoji(emoji: string) {
   draft.value += emoji;
@@ -59,22 +61,45 @@ async function loadMessages(){
 
   // читаем данные
   messages.value = await db.select<Message[]>(
-      "SELECT id, author, body, created_at FROM messages ORDER BY id ASC",
+      "SELECT id, author, body, created_at, image_path FROM messages ORDER BY id ASC",
   );
+}
+
+async function chooseAttachment(){
+  const selected = await open({
+    multiple: false,
+    directory: false,
+    filters: [
+      {
+        name: "Файлы",
+        extensions: ["png", "jpg", "jpeg", "gif", "webp", "pdf", "txt"],
+      },
+    ],
+  });
+
+  if (typeof selected === "string") {
+    // Сохраняем исходный путь: имя и расширение файла не подменяются на .png.
+    attachmentPath.value = selected;
+  }
+}
+
+function clearAttachment(){
+  attachmentPath.value = null;
 }
 
 async function sendMessage(body: string){
   if (!db) return;
 
-
   await db.execute(
-      "INSERT INTO messages (author, body) VALUES ($1, $2)",
+      "INSERT INTO messages (author, body, image_path) VALUES ($1, $2, $3)",
       [
           currentUser.value.name,
-          body
+          body,
+          attachmentPath.value,
       ],
   );
 
+  clearAttachment();
   await loadMessages()
 
 }
@@ -117,7 +142,10 @@ onMounted(async()=>{
       />
       <MessageComposer
           v-model="draft"
+          :attachment-name="attachmentPath?.split(/[/\\]/).pop() ?? null"
           @send="sendMessage"
+          @attach="chooseAttachment"
+          @clear-attachment="clearAttachment"
           @toggle-emoji="isEmojiOpen = !isEmojiOpen"
       />
     </section>
