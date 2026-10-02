@@ -181,6 +181,18 @@ pub fn run() {
             description: "create_users_and_link_messages",
             sql: include_str!("../migrations/0004_users.sql"),
             kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 5,
+            description: "store_chat_read_state",
+            sql: include_str!("../migrations/0005_chat_read_state.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 6,
+            description: "store_selected_chat_for_user",
+            sql: include_str!("../migrations/0006_user_chat_state.sql"),
+            kind: MigrationKind::Up,
         }
     ];
 
@@ -192,7 +204,10 @@ pub fn run() {
             // Сборщик плагинов
             tauri_plugin_sql::Builder::default()
                 // Связываем migrations с базой sql
-                .add_migrations("sqlite:messenger.db", migrations)
+                // `messenger.db` принадлежит старой несовместимой схеме.
+                // Новая схема начинается в отдельном файле и не повреждает
+                // существующую историю сообщений.
+                .add_migrations("sqlite:messenger_v2.db", migrations)
                 // Собираем плагины
                 .build(),
         )

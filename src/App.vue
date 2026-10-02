@@ -73,8 +73,21 @@ const users = ref<User[]>([]);
 
 const currentUser = ref<User | null>(null);
 
-function selectUser(user: User){
+async function selectUser(user: User) {
   currentUser.value = user;
+  activeChat.value = null;
+
+  await loadChats();
+
+  const savedChatId = await getSelectedChatId(user.id);
+
+  const chatToOpen =
+      chats.value.find((chat) => chat.id === savedChatId)
+      ?? chats.value[0];
+
+  if (chatToOpen) {
+    await selectChat(chatToOpen);
+  }
 }
 
 // Создаем структуру одного сообщения
@@ -94,24 +107,110 @@ const status = ref("Подключение...")
 // Здесь будет подключение к бд (честно), но пока тут null
 let db: Database | null = null;
 
-async function loadChats(){
-  if (!db) return;
+async function getSelectedChatId(userId: number) {
+  if (!db) return null;
 
-  chats.value = await db.select<Chat[]>(
-    "SELECT id, title, subtitle FROM chats ORDER BY id ASC",
+  const result = await db.select<{ selected_chat_id: number | null }[]>(
+      `
+      SELECT selected_chat_id
+      FROM user_chat_state
+      WHERE user_id = $1
+    `,
+      [userId],
   );
 
-  if (chats.value.length > 0){
-    await selectChat(chats.value[0]);
-  }
+  return result[0]?.selected_chat_id ?? null;
+}
+
+async function saveSelectedChat(chatId: number) {
+  if (!db || !currentUser.value) return;
+
+  await db.execute(
+      `
+      INSERT INTO user_chat_state (
+        user_id,
+        selected_chat_id
+      )
+      VALUES ($1, $2)
+
+      ON CONFLICT(user_id)
+      DO UPDATE SET
+        selected_chat_id = excluded.selected_chat_id
+    `,
+      [currentUser.value.id, chatId],
+  );
+}
+
+async function loadChats(){
+  const user = currentUser.value;
+
+  if (!db || !user) return;
+
+  chats.value = await db.select<Chat[]>(
+      `
+      SELECT
+        chats.id,
+        chats.title,
+        chats.subtitle,
+        COUNT(messages.id) AS unread_count
+      FROM chats
+
+      LEFT JOIN chat_read_state
+        ON chat_read_state.chat_id = chats.id
+        AND chat_read_state.user_id = $1
+
+      LEFT JOIN messages
+        ON messages.chat_id = chats.id
+        AND messages.id > COALESCE(chat_read_state.last_read_message_id, 0)
+        AND messages.author_id != $1
+
+      GROUP BY chats.id
+      ORDER BY chats.id ASC
+    `,
+      [user.id],
+  );
+
+}
+
+async function markChatAsRead(chatId: number) {
+  if (!db || !currentUser.value) return;
+
+  const result = await db.select<{ last_id: number | null }[]>(
+      `
+      SELECT MAX(id) AS last_id
+      FROM messages
+      WHERE chat_id = $1
+    `,
+      [chatId],
+  );
+
+  const lastMessageId = result[0]?.last_id ?? 0;
+
+  await db.execute(
+      `
+      INSERT INTO chat_read_state (
+        user_id,
+        chat_id,
+        last_read_message_id
+      )
+      VALUES ($1, $2, $3)
+
+      ON CONFLICT(user_id, chat_id)
+      DO UPDATE SET
+        last_read_message_id = excluded.last_read_message_id
+    `,
+      [currentUser.value.id, chatId, lastMessageId],
+  );
 }
 
 async function selectChat(chat: Chat){
   activeChat.value = chat;
-
   activeChatId.value = chat.id;
 
+  await saveSelectedChat(chat.id);
   await loadMessages(chat.id);
+  await markChatAsRead(chat.id);
+  await loadChats();
 }
 
 // Асинхронная функция загрузки сообщений из sql
@@ -239,12 +338,16 @@ async function sendImage(path:string){
 onMounted(async()=>{
   try{
     // Открываем бд
-    db = await Database.load("sqlite:messenger.db");
+    db = await Database.load("sqlite:messenger_v2.db");
 
     // Загружаем из базы старые сообщения
     await loadUsers();
-    await loadChats();
 
+    if (users.value.length > 0) {
+      await selectUser(users.value[0]);
+    }
+
+    await loadChats();
     // Показываем успешеное состоние
     status.value = "История сохраняется локально";
   }catch (error){
