@@ -1,44 +1,18 @@
 <script setup lang="ts">
-
+import { getFileUrl } from "../types/file.ts";
 import type { Message } from "../types/message.ts";
-import { invoke } from "@tauri-apps/api/core";
-import { onBeforeUnmount, ref, watch } from "vue";
+import { ref } from "vue";
 
-const props = defineProps<{
+defineProps<{
   message: Message;
   isOwn: boolean;
+  close?: false;
 }>();
 
-const imageUrl = ref<string | null>(null);
-const attachmentError = ref(false);
+const isImgOpen = ref(false)
 
-function revokeImageUrl() {
-  if (imageUrl.value) URL.revokeObjectURL(imageUrl.value);
-  imageUrl.value = null;
-}
-
-function imageMimeType(path: string) {
-  const extension = path.split(".").pop()?.toLowerCase();
-  return extension === "jpg" || extension === "jpeg" ? "image/jpeg" : `image/${extension ?? "png"}`;
-}
-
-async function loadAttachment(path: string | null) {
-  revokeImageUrl();
-  attachmentError.value = false;
-  if (!path) return;
-
-  try {
-    const bytes = await invoke<number[]>("read_attachment", { attachmentId: path });
-    const blob = new Blob([new Uint8Array(bytes)], { type: imageMimeType(path) });
-    imageUrl.value = URL.createObjectURL(blob);
-  } catch (error) {
-    console.error(error);
-    attachmentError.value = true;
-  }
-}
-
-watch(() => props.message.image_path, loadAttachment, { immediate: true });
-onBeforeUnmount(revokeImageUrl);
+const openModal = () => { isImgOpen.value = true }
+const closeModal = () => { isImgOpen.value = false }
 </script>
 
 <template>
@@ -49,49 +23,101 @@ onBeforeUnmount(revokeImageUrl);
         'message--other': !isOwn,
       }"
   >
-    <img v-if="imageUrl" :src="imageUrl" alt="Вложение" class="message-image" />
-    <p v-else-if="attachmentError" class="attachment-error">Не удалось открыть вложение</p>
-    <p v-if="message.body">
-      {{message.body}}
+    <p v-if="message.type === 'text'">
+      {{ message.body }}
     </p>
+
+    <img
+        v-if="message.type === 'image' && message.attachment"
+        class="message-image"
+        :src="getFileUrl(message.attachment)"
+        @click="openModal"
+        alt="Превью"
+    />
+
+    <div
+        v-if="isImgOpen && message.attachment"
+        class="modal-overlay"
+        @click.self="closeModal"
+    >
+      <div class="modal-content">
+        <img
+            class="modal-image"
+            :src="getFileUrl(message.attachment)"
+            alt="Увеличенное изображение"
+        />
+      </div>
+    </div>
+
+
     <footer>
-            <span>
-              {{ message.author}}
-            </span>
-      <span>
-              |
-            </span>
-      <span>
-              {{message.created_at}}
-            </span>
+      <span>{{ message.author_name }}</span>
+      <span>|</span>
+      <span>{{ message.created_at }}</span>
     </footer>
   </article>
 </template>
 
 <style scoped>
 
-.message{
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+}
+
+.modal-content {
+  position: relative;
+  max-width: 90%;
+  max-height: 90%;
+}
+
+.modal-image {
+  display: block;
+  max-width: 90vw;
+  max-height: 85vh;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.message-image {
+  max-width: 300px;
+  max-height: 300px;
+  border-radius: 12px;
+  object-fit: cover;
+  cursor: pointer;
+}
+
+.message {
   max-width: 70%;
   margin: 0;
   padding: 10px 12px;
   border-radius: 10px;
 }
-.message--own{
+.message--own {
   align-self: flex-end;
   background: #386be0;
 }
-.message--other{
+.message--other {
   align-self: flex-start;
   background: #252830;
 }
 
-.message p{
+.message p {
   margin: 0;
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
 
-.message footer{
+.message footer {
   display: flex;
   justify-content: flex-end;
   gap: 5px;
@@ -99,17 +125,4 @@ onBeforeUnmount(revokeImageUrl);
   color: #b5bbc7;
   font-size: 10px;
 }
-
-.message-image {
-  display: block;
-  max-width: 280px;
-  max-height: 280px;
-  border-radius: 8px;
-  object-fit: contain;
-}
-
-.attachment-error {
-  margin: 0;
-}
-
 </style>

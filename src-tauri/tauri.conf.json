@@ -18,11 +18,11 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost",
+      "csp": null,
       "assetProtocol": {
         "enable": true,
         "scope": [
-          "$PICTURE/**"
+          "$APPDATA/attachments/**/*"
         ]
       }
     }

@@ -12,7 +12,7 @@ import type {Message} from "../types/message.ts";
 
 const props = defineProps<{
   messages: Message[];
-  currentUserName: string;
+  currentUserId: number;
 }>();
 
 const bottomAnchor = useTemplateRef<HTMLDivElement>("bottom-anchor");
@@ -56,7 +56,7 @@ onMounted(scrollToBottom);
           v-for="message in messages"
           :key="message.id"
           :message="message"
-          :is-own="message.author === currentUserName"
+          :is-own="message.author_id === currentUserId"
       />
       <div
         ref="bottom-anchor"

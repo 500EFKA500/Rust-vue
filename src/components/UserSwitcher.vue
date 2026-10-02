@@ -34,7 +34,7 @@ function selectUser(user: User){
 
       @click="selectUser(user)"
     >
-     {{ user.name }}
+     {{ user.display_name }}
     </button>
   </div>
 </template>

@@ -1,0 +1,5 @@
+ALTER TABLE messages
+ADD COLUMN type TEXT NOT NULL DEFAULT 'text';
+
+ALTER TABLE messages
+ADD COLUMN attachment TEXT;

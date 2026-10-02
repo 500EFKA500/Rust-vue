@@ -21,22 +21,57 @@ import type { Chat } from "./types/chats";
 
 import type { Message } from "./types/message.ts";
 
-const oleg: User = {
-  id: 1,
-  name: "Олег",
-};
+import type {ProfileUpdate} from "./types/user";
 
-const kirill: User = {
-  id: 2,
-  name: "Кирилл",
-};
+import ProfileEditor from "./components/ProfileEditor.vue";
 
-const users: User[] =[
-  oleg,
-  kirill,
-];
+const isProfileOpen = ref(false);
 
-const currentUser = ref<User>(oleg);
+function openProfile(){
+  isProfileOpen.value = true;
+}
+
+function closeProfile(){
+  isProfileOpen.value = false;
+}
+
+
+async function saveProfile( profile: ProfileUpdate, ){
+  if (!db) return;
+  if (!currentUser.value) return;
+
+  await db.execute(
+      `
+        UPDATE users
+
+        SET
+            display_name = $1,
+            status = $2
+
+        WHERE id = $3
+      `,
+      [
+          profile.displayName,
+          profile.status,
+          currentUser.value.id,
+      ],
+  );
+
+  currentUser.value.display_name = profile.displayName;
+  currentUser.value.status = profile.status;
+
+  if(activeChat.value){
+    await loadMessages(
+        activeChat.value.id,
+    );
+  }
+
+  closeProfile();
+}
+
+const users = ref<User[]>([]);
+
+const currentUser = ref<User | null>(null);
 
 function selectUser(user: User){
   currentUser.value = user;
@@ -86,20 +121,45 @@ async function loadMessages(chatId: number){
 
   // Читаем данные из таблицы messages
   messages.value = await db.select<Message[]>(
-    "SELECT id, author, body, image_path, created_at FROM messages WHERE chat_id = $1 ORDER BY id ASC",
+    `SELECT
+       messages.id,
+       messages.chat_id,
+       messages.author_id,
+       users.display_name AS author_name,
+       users.avatar_path AS author_avatar,
+       messages.type,
+       messages.body,
+       messages.attachment,
+       messages.created_at
+      FROM messages
+      INNER JOIN users
+            ON users.id = messages.author_id
+      WHERE messages.chat_id = $1
+      ORDER BY messages.id ASC`,
       [chatId],
   );
 }
 
-async function sendImage(imagePath: string){
-  if (!db || !activeChat.value) return;
+async function loadUsers(){
+  if(!db) return;
 
-  await db.execute(
-    "INSERT INTO messages (chat_id, author, body, image_path) VALUES ($1, $2, $3, $4)",
-    [activeChat.value.id, currentUser.value.name, "", imagePath],
-  );
-
-  await loadMessages(activeChat.value.id);
+  users.value =
+      await  db.select<User[]>(
+          `
+          SELECT
+            id,
+            username,
+            display_name,
+            avatar_path,
+            status,
+            created_at
+          FROM users
+          ORDER BY id ASC
+         `,
+      );
+  if (users.value.length > 0 && currentUser.value === null){
+    currentUser.value = users.value[0];
+  }
 }
 
 // Функция отправки нового сообщения
@@ -108,22 +168,71 @@ async function sendMessage(body: string){
 
   if (!activeChat.value) return;
 
+  if (!currentUser.value) return;
+
   await db.execute(
     `
        INSERT INTO messages (
             chat_id,
-            author,
-            body
+            author_id,
+            type,
+            body,
+            attachment
        )
-       VALUES ($1, $2, $3)
+       VALUES ($1, $2, $3, $4, $5)
     `,
       [
           activeChat.value.id,
-          currentUser.value.name,
+          currentUser.value.id,
+          "text",
           body,
+          null,
       ],
   );
   await loadMessages(activeChat.value.id)
+}
+
+async function sendImage(path:string){
+  if(!db)
+    return;
+
+  if (!activeChat.value)
+    return;
+
+  if (!currentUser.value) return;
+
+  await db.execute(
+      `
+        INSERT INTO messages
+        (
+           chat_id,
+           author_id,
+           type,
+           body,
+           attachment
+        )
+
+        VALUES
+        (
+            $1,
+            $2,
+            $3,
+            $4,
+            $5
+        )
+      `,
+      [
+          activeChat.value.id,
+          currentUser.value.id,
+          "image",
+          null,
+          path,
+      ]
+  );
+
+  await loadMessages(
+      activeChat.value.id
+  )
 }
 
 // VUE выполнит код ниже, когда интерфейс программы уже загрузится
@@ -133,6 +242,7 @@ onMounted(async()=>{
     db = await Database.load("sqlite:messenger.db");
 
     // Загружаем из базы старые сообщения
+    await loadUsers();
     await loadChats();
 
     // Показываем успешеное состоние
@@ -149,12 +259,18 @@ onMounted(async()=>{
 <template>
   <main class="app">
     <AppHeader
+        v-if="currentUser"
         :status="status"
         :users="users"
         :current-user="currentUser"
         @select="selectUser"
+        @profile="openProfile"
     />
-    <div class="workspace">
+    <p v-else class="boot-status">{{ status }}</p>
+    <div
+        v-if="currentUser"
+        class="workspace"
+    >
       <ChatSidebar
           :chats="chats"
           :active-chat-id="activeChatId"
@@ -162,18 +278,29 @@ onMounted(async()=>{
       />
       <section class="chat">
         <template v-if="activeChat">
-          <ChatInfo
-            :title="activeChat.title"
-            :subtitle="activeChat.subtitle"
-          />
+          <div class="chat-info">
+            <h2>{{ activeChat.title }}</h2>
+            <p>{{ activeChat.subtitle }}</p>
+          </div>
           <MessageList
+              :key="activeChat.id"
               :messages="messages"
-              :current-user-name="currentUser.name"
+              :current-user-id="currentUser.id"
           />
-          <MessageComposer @send="sendMessage" @image="sendImage" />
+          <MessageComposer
+              @send="sendMessage"
+              @sendImage="sendImage"
+          />
         </template>
       </section>
     </div>
+    <ProfileEditor
+        v-if="isProfileOpen && currentUser"
+        :key="currentUser.id"
+        :user="currentUser"
+        @save="saveProfile"
+        @close="closeProfile"
+    ></ProfileEditor>
   </main>
 </template>
 
@@ -220,6 +347,11 @@ onMounted(async()=>{
       Разрешим прокрутку только для MessageList
   */
   overflow: hidden;
+}
+
+.boot-status{
+  margin: 24px;
+  color: #858c98;
 }
 
 .chat{
