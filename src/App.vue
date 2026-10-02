@@ -169,7 +169,6 @@ async function loadChats(){
     `,
       [user.id],
   );
-
 }
 
 async function markChatAsRead(chatId: number) {

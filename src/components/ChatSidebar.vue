@@ -134,7 +134,7 @@ function selectChat(chat: Chat){
   place-items: center;
 
   border-radius: 999px;
-  background: #e6c400;
+  background: #386be0;
   color: #1b1b1b;
 
   font-size: 12px;
