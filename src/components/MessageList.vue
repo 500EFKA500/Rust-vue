@@ -1,23 +1,30 @@
 <script setup lang="ts">
 import {
-  nextTick,       // Позволяет дождаться момента, когда Vue обновит HTML
+  nextTick, // Позволяет дождаться момента, когда Vue обновит HTML
   onMounted,
   useTemplateRef, // Дает возможность получить ссылку на html-элемент из template
-  watch,          // озволяет следть за изменение выбранных данных
+  watch, // озволяет следть за изменение выбранных данных
 } from "vue";
 
 import MessageBubble from "./MessageBubble.vue";
 
-import type {Message} from "../types/message.ts";
+import type { Message } from "../types/message.ts";
 
 const props = defineProps<{
   messages: Message[];
   currentUserId: number;
+  pendingMessageId: number | null;
+  messageError: { messageId: number | null; text: string };
+}>();
+
+const emit = defineEmits<{
+  edit: [message: Message, body: string];
+  delete: [message: Message];
 }>();
 
 const bottomAnchor = useTemplateRef<HTMLDivElement>("bottom-anchor");
 
-async function scrollToBottom(){
+async function scrollToBottom() {
   /* Нужно дождаться обновления DOM */
   await nextTick();
 
@@ -28,14 +35,11 @@ async function scrollToBottom(){
   });
 }
 
-function getMessageCount(){
+function getMessageCount() {
   return props.messages.length;
 }
 
-watch(
-    getMessageCount,
-    scrollToBottom,
-);
+watch(getMessageCount, scrollToBottom);
 
 onMounted(scrollToBottom);
 </script>
@@ -45,42 +49,45 @@ onMounted(scrollToBottom);
     <!-- Данный див будет отображаться когда сообщений нет -->
     <div class="messages-inner">
       <div
-          v-if="messages.length === 0"
-          class="empty"
+        v-if="messages.length === 0"
+        class="empty"
       >
         <strong> Здесь пока пусто </strong>
         <span> Напишите первое сообщение </span>
       </div>
       <!-- Vue создает article для каждого сообщения из базы -->
       <MessageBubble
-          v-for="message in messages"
-          :key="message.id"
-          :message="message"
-          :is-own="message.author_id === currentUserId"
+        v-for="message in messages"
+        :key="message.id"
+        :message="message"
+        :is-own="message.author_id === currentUserId"
+        :pending="pendingMessageId === message.id"
+        :error="messageError.messageId === message.id ? messageError.text : ''"
+        @edit="(message, body) => emit('edit', message, body)"
+        @delete="(message) => emit('delete', message)"
       />
       <div
         ref="bottom-anchor"
         class="bottom-anchor"
         aria-hidden="true"
-      >
-      </div>
+      ></div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.bottom-anchor{
+.bottom-anchor {
   height: 1px;
   flex-shrink: 0;
 }
 
-.messages{
+.messages {
   flex: 1;
   overflow-y: auto;
   padding: 24px;
 }
 
-.messages-inner{
+.messages-inner {
   min-height: 100%;
   display: flex;
   flex-direction: column;
@@ -88,7 +95,7 @@ onMounted(scrollToBottom);
   gap: 10px;
 }
 
-.empty{
+.empty {
   margin: auto;
   display: flex;
   flex-direction: column;
@@ -96,5 +103,4 @@ onMounted(scrollToBottom);
   text-align: center;
   color: #858c98;
 }
-
 </style>

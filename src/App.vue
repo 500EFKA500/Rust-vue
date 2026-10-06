@@ -260,6 +260,86 @@ async function loadUsers(){
   }
 }
 
+// Компоненты передают действия событиями; работа с БД остаётся здесь.
+const pendingMessageId = ref<number | null>(null);
+const messageError = ref<{ messageId: number | null; text: string }>({
+  messageId: null,
+  text: "",
+});
+
+async function editMessage(message: Message, body: string) {
+  const connection = db;
+  const user = currentUser.value;
+  const text = body.trim();
+
+  if (!connection || !user || pendingMessageId.value !== null) {
+    return;
+  }
+  if (message.author_id !== user.id || message.type !== "text" || !text) {
+    return;
+  }
+
+  pendingMessageId.value = message.id;
+  messageError.value = { messageId: null, text: "" };
+
+  try {
+    const result = await connection.execute(
+      "UPDATE messages SET body = $1 WHERE id = $2 AND author_id = $3 AND type = 'text'",
+      [text, message.id, user.id],
+    );
+
+    if (!result.rowsAffected) {
+      throw new Error("Сообщение уже удалено.");
+    }
+    if (currentUser.value?.id === user.id && activeChat.value?.id === message.chat_id) {
+      messages.value = messages.value.map(item =>
+        item.id === message.id ? { ...item, body: text } : item
+      );
+    }
+  } catch (error) {
+    messageError.value = {
+      messageId: message.id,
+      text: "Не удалось сохранить: " + String(error),
+    };
+  } finally {
+    pendingMessageId.value = null;
+  }
+}
+
+async function deleteMessage(message: Message) {
+  const connection = db;
+  const user = currentUser.value;
+
+  if (!connection || !user || pendingMessageId.value !== null) {
+    return;
+  }
+  if (message.author_id !== user.id) {
+    return;
+  }
+
+  pendingMessageId.value = message.id;
+  messageError.value = { messageId: null, text: "" };
+
+  try {
+    await connection.execute(
+      "DELETE FROM messages WHERE id = $1 AND author_id = $2",
+      [message.id, user.id],
+    );
+
+    if (currentUser.value?.id === user.id && activeChat.value?.id === message.chat_id) {
+      messages.value = messages.value.filter(item => item.id !== message.id);
+    }
+    await loadChats();
+  } catch (error) {
+    messageError.value = {
+      messageId: message.id,
+      text: "Не удалось удалить: " + String(error),
+    };
+  } finally {
+    pendingMessageId.value = null;
+  }
+}
+
 // Функция отправки нового сообщения
 async function sendMessage(body: string){
   if (!db) return;
@@ -385,9 +465,13 @@ onMounted(async()=>{
             <p>{{ activeChat.subtitle }}</p>
           </div>
           <MessageList
-              :key="activeChat.id"
+              :key="activeChat.id + '-' + currentUser.id"
               :messages="messages"
               :current-user-id="currentUser.id"
+              :pending-message-id="pendingMessageId"
+              :message-error="messageError"
+              @edit="editMessage"
+              @delete="deleteMessage"
           />
           <MessageComposer
               @send="sendMessage"
