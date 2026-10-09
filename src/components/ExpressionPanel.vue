@@ -342,7 +342,7 @@ button {
   font: inherit;
 }
 button:focus-visible {
-  outline: 2px solid #79a8ff;
+  outline: 2px solid var(--accent-link);
   outline-offset: -2px;
 }
 button:disabled {
@@ -353,15 +353,15 @@ button:disabled {
   height: min(320px, 45vh);
   display: flex;
   flex-direction: column;
-  border-top: 1px solid #303643;
-  background: #1b2029;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
 }
 .panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 12px;
-  border-bottom: 1px solid #303643;
+  border-bottom: 1px solid var(--border);
 }
 .tabs {
   display: flex;
@@ -373,7 +373,7 @@ button:disabled {
   width: 60px;
   height: 43px;
   padding: 0 12px;
-  color: #97a3b4;
+  color: var(--text-muted);
   background: transparent;
   border: 0;
   border-bottom: 2px solid transparent;
@@ -394,15 +394,15 @@ button:disabled {
   border-radius: 4px;
 }
 .tabs .selected {
-  color: #79a8ff;
-  border-bottom-color: #79a8ff;
+  color: var(--accent-link);
+  border-bottom-color: var(--accent-link);
 }
 .close-panel {
   width: 32px;
   height: 32px;
   border: 0;
   border-radius: 6px;
-  color: #97a3b4;
+  color: var(--text-muted);
   background: transparent;
   font-size: 25px;
 }
@@ -412,7 +412,7 @@ button:disabled {
   overflow-y: auto;
   padding: 12px 16px;
   scrollbar-width: thin;
-  scrollbar-color: #424d60 transparent;
+  scrollbar-color: var(--text-muted) transparent;
 }
 .emoji-grid {
   display: grid;
@@ -430,7 +430,7 @@ button:disabled {
 }
 .emoji-grid button:hover,
 .sticker-grid button:hover {
-  background: #2c3442;
+  background: var(--hover);
 }
 .sticker-grid {
   display: grid;
@@ -460,27 +460,27 @@ button:disabled {
   left: 22px;
   width: 16px;
   height: 16px;
-  color: #8190a5;
+  color: var(--text-muted);
   pointer-events: none;
 }
 .search-row input {
   min-width: 0;
   flex: 1;
-  background: #252c38;
-  color: white;
+  background: var(--field);
+  color: var(--text);
   padding: 8px 10px 8px 34px;
   border: 0;
   border-radius: 18px;
   outline: none;
 }
 .search-row input:focus {
-  box-shadow: inset 0 0 0 1px #517bbb;
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 .search-row button {
   border: 0;
   border-radius: 7px;
-  background: #293d60;
-  color: #a7c5ff;
+  background: var(--accent-soft);
+  color: var(--accent-link);
   font-size: 12px;
 }
 .gif-grid {
@@ -494,7 +494,7 @@ button:disabled {
   overflow: hidden;
   border: 0;
   border-radius: 9px;
-  background: #252c38;
+  background: var(--field);
 }
 .gif-grid img {
   width: 100%;
@@ -503,7 +503,7 @@ button:disabled {
   object-fit: contain;
 }
 .gif-grid button:hover {
-  box-shadow: inset 0 0 0 2px #79a8ff;
+  box-shadow: inset 0 0 0 2px var(--accent-link);
 }
 .search-row .add-gif {
   width: 32px;
@@ -511,7 +511,7 @@ button:disabled {
   padding: 0;
   border-radius: 50%;
   background: transparent;
-  color: #a7b3c4;
+  color: var(--text-secondary);
   font-size: 26px;
   flex-shrink: 0;
 }
@@ -519,7 +519,7 @@ button:disabled {
   display: flex;
   justify-content: space-around;
   padding: 4px 6px;
-  border-top: 1px solid #303643;
+  border-top: 1px solid var(--border);
 }
 .categories button {
   width: 32px;
@@ -527,22 +527,22 @@ button:disabled {
   border: 0;
   border-radius: 7px;
   background: transparent;
-  color: #8492a6;
+  color: var(--text-muted);
   font-size: 20px;
 }
 .categories .selected,
 .categories button:hover {
-  color: #79a8ff;
-  background: #273347;
+  color: var(--accent-link);
+  background: var(--accent-soft);
 }
 .error {
   padding: 8px 16px;
   margin: 0;
-  color: #ff9b9b;
+  color: var(--danger);
   font-size: 12px;
 }
 .empty {
-  color: #97a3b4;
+  color: var(--text-muted);
   font-size: 13px;
 }
 @media (max-width: 620px) {

@@ -1,0 +1,118 @@
+:root {
+  --color-scheme: dark;
+  --bg: #111318;
+  --surface: #171b23;
+  --sidebar: #15171c;
+  --field: #20232a;
+  --border: #303641;
+  --text: #f2f3f5;
+  --text-secondary: #b6c0d0;
+  --text-muted: #929aaa;
+  --hover: #25324a;
+  --accent: #386be0;
+  --accent-link: #79a8ff;
+  --accent-soft: #273347;
+  --bubble-own: var(--accent);
+  --own-text: #fff;
+  --own-muted: #dce9ff;
+  --bubble-other: #252830;
+  --chat-background: #111318;
+  --message-font-size: 14px;
+  --danger: #ff9b9b;
+}
+:root[data-theme="light"] {
+  --color-scheme: light;
+  --bg: #edf1f5;
+  --surface: #fff;
+  --sidebar: #fff;
+  --field: #f1f4f8;
+  --border: #dce3eb;
+  --text: #172436;
+  --text-secondary: #435267;
+  --text-muted: #697789;
+  --hover: #e9eef5;
+  --accent-link: var(--accent);
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, white);
+  --bubble-own: color-mix(in srgb, var(--accent) 17%, white);
+  --own-text: #172436;
+  --own-muted: #576b82;
+  --bubble-other: #fff;
+  --chat-background: #e7edf2;
+  --danger: #c13649;
+}
+:root[data-accent="purple"] {
+  --accent: #8455d5;
+  --accent-link: #a581ed;
+}
+:root[data-accent="green"] {
+  --accent: #258354;
+  --accent-link: #5ab88b;
+}
+:root[data-accent="orange"] {
+  --accent: #b65a19;
+  --accent-link: #f1a166;
+}
+:root[data-accent="pink"] {
+  --accent: #c3417c;
+  --accent-link: #ee86b3;
+}
+:root[data-theme="light"] {
+  --accent-link: var(--accent);
+}
+:root[data-background="dots"] .chat {
+  background-image: radial-gradient(var(--border) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+:root[data-background="gradient"] .chat {
+  background-image: linear-gradient(
+    135deg,
+    var(--chat-background),
+    color-mix(in srgb, var(--accent) 18%, var(--chat-background))
+  );
+}
+.chat {
+  background-color: var(--chat-background);
+}
+.message {
+  font-size: var(--message-font-size);
+}
+.message--own {
+  background: var(--bubble-own) !important;
+  color: var(--own-text);
+}
+.message--other {
+  background: var(--bubble-other) !important;
+  color: var(--text);
+}
+.message--own footer {
+  color: var(--own-muted) !important;
+}
+.profile-tabs {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.profile-tabs button {
+  flex: 1;
+  padding: 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+}
+.profile-tabs .selected {
+  color: var(--accent-link);
+  border-bottom-color: var(--accent);
+}
+html[data-compact="true"] .chat-button {
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+html[data-compact="true"] .chat-summary {
+  gap: 4px;
+}
+html[data-compact="true"] .chat-button .avatar {
+  width: 34px;
+  height: 34px;
+}

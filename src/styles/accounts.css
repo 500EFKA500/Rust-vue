@@ -1,0 +1,296 @@
+button,
+input,
+textarea {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+button:focus-visible,
+a:focus-visible,
+.text-button:focus-within {
+  outline: 2px solid var(--accent-link);
+  outline-offset: 3px;
+}
+.muted {
+  color: var(--text-muted);
+}
+.danger {
+  color: var(--danger) !important;
+}
+.account-dialog {
+  position: fixed;
+  width: min(420px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  padding: 0;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 24px 100px #0008;
+}
+.account-dialog::backdrop {
+  background: #080b12b8;
+  backdrop-filter: blur(5px);
+}
+.account-dialog--drawer {
+  inset: 0 auto 0 0;
+  margin: 0;
+  width: min(320px, calc(100vw - 24px));
+  height: 100dvh;
+  max-height: 100dvh;
+  border-radius: 0 20px 20px 0;
+  border-width: 0 1px 0 0;
+}
+.auth-card {
+  position: relative;
+  width: min(420px, 100%);
+  margin: auto;
+  padding: 32px;
+  text-align: center;
+}
+.auth-card h1 {
+  margin: 18px 0 8px;
+  font-size: 24px;
+}
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  margin: auto;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #62adff, var(--accent));
+  font-size: 42px;
+  color: white;
+}
+.account-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  text-align: left;
+  margin-top: 28px;
+}
+.account-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.account-form input,
+.account-form textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--text);
+  outline: none;
+}
+.account-form textarea {
+  resize: vertical;
+}
+.account-form input:focus,
+.account-form textarea:focus {
+  border-color: var(--accent-link);
+  box-shadow: 0 0 0 2px #386be022;
+}
+.password-field {
+  position: relative;
+}
+.password-field input {
+  padding-right: 45px;
+}
+.password-field button {
+  position: absolute;
+  right: 8px;
+  top: 6px;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 22px;
+}
+.primary-button,
+.secondary-button {
+  padding: 12px 18px;
+  border-radius: 10px;
+  border: 0;
+  background: var(--accent);
+  color: white;
+  font-weight: 600;
+}
+.primary-button:hover:not(:disabled) {
+  background: var(--accent);
+}
+.secondary-button {
+  background: var(--hover);
+}
+.text-button {
+  display: inline-block;
+  padding: 8px;
+  margin-top: 12px;
+  border: 0;
+  background: transparent;
+  color: var(--accent-link);
+  font: inherit;
+  cursor: pointer;
+}
+.auth-footnote {
+  font-size: 11px;
+  margin: 24px 0 0;
+}
+.form-error {
+  color: var(--danger);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+}
+.close-button {
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 26px;
+  width: 34px;
+  height: 34px;
+}
+.auth-card > .close-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+.menu-profile {
+  position: relative;
+  padding: 28px 24px;
+  background: linear-gradient(145deg, var(--accent-soft), var(--surface));
+}
+.menu-profile > .close-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+.menu-profile > .avatar {
+  width: 64px;
+  height: 64px;
+  font-size: 22px;
+}
+.menu-profile h2 {
+  margin: 14px 0 4px;
+  font-size: 20px;
+}
+.menu-profile p {
+  margin: 14px 0 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.account-list {
+  padding: 12px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.account-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+.account-row.selected,
+.account-row:hover {
+  background: var(--hover);
+}
+.account-row > span:nth-child(2) {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.account-row small {
+  color: var(--text-muted);
+}
+.account-check {
+  margin-left: auto;
+  color: var(--accent-link);
+}
+.menu-actions {
+  padding: 10px 8px;
+}
+.menu-actions button {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 14px;
+  border: 0;
+  border-radius: 10px;
+  color: var(--text-secondary);
+  background: transparent;
+  text-align: left;
+}
+.menu-actions button:hover {
+  background: var(--hover);
+}
+.menu-actions span {
+  width: 22px;
+  text-align: center;
+  font-size: 22px;
+}
+.menu-note {
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 0 22px 18px;
+}
+.profile-card {
+  padding: 24px;
+}
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.dialog-header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.profile-avatar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 20px;
+}
+.profile-avatar .avatar {
+  width: 90px;
+  height: 90px;
+  font-size: 28px;
+}
+.profile-username {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+}
+.profile-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px !important;
+  height: 1px;
+  padding: 0 !important;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

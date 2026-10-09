@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { nextTick, ref } from "vue";
+import { nextTick, ref, watch } from "vue";
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import ExpressionPanel from "./ExpressionPanel.vue";
 import smileIcon from "../assets/icons/smile.svg?raw";
 import attachmentIcon from "../assets/icons/attachment.svg?raw";
+
+const props = defineProps<{ pending: boolean; sendError: string; sentVersion: number }>();
 
 const emit = defineEmits<{
   send: [body: string];
@@ -16,14 +18,19 @@ const input = ref<HTMLInputElement | null>(null);
 const panelOpen = ref(false);
 const error = ref("");
 const importing = ref(false);
+watch(
+  () => props.sentVersion,
+  () => {
+    draft.value = "";
+  },
+);
 
 function submitMessage() {
   const body = draft.value.trim();
-  if (!body) {
+  if (!body || props.pending) {
     return;
   }
   emit("send", body);
-  draft.value = "";
 }
 
 function togglePanel() {
@@ -44,6 +51,7 @@ async function insertEmoji(emoji: string) {
 }
 
 function sendMedia(path: string) {
+  if (props.pending) return;
   emit("sendImage", path);
   closePanel();
 }
@@ -86,11 +94,11 @@ async function selectImage() {
       @close="closePanel"
     />
     <p
-      v-if="error"
+      v-if="error || sendError"
       class="error"
       role="alert"
     >
-      {{ error }}
+      {{ error || sendError }}
     </p>
     <form
       class="composer"
@@ -101,7 +109,7 @@ async function selectImage() {
         class="icon-button"
         aria-label="Прикрепить изображение"
         title="Прикрепить изображение"
-        :disabled="importing"
+        :disabled="importing || pending"
         @click="selectImage"
       >
         <span v-html="attachmentIcon" />
@@ -109,6 +117,7 @@ async function selectImage() {
       <input
         ref="input"
         v-model="draft"
+        :disabled="pending"
         type="text"
         placeholder="Написать сообщение…"
         autocomplete="off"
@@ -131,7 +140,7 @@ async function selectImage() {
         class="send-button"
         aria-label="Отправить"
         title="Отправить"
-        :disabled="!draft.trim()"
+        :disabled="pending || !draft.trim()"
       >
         <svg
           viewBox="0 0 24 24"
@@ -153,21 +162,21 @@ async function selectImage() {
 .composer-area {
   flex-shrink: 0;
   min-width: 0;
-  background: #17191f;
+  background: var(--surface);
 }
 .composer {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 12px 16px;
-  border-top: 1px solid #252830;
+  border-top: 1px solid var(--border);
 }
 button {
   cursor: pointer;
   font: inherit;
 }
 button:focus-visible {
-  outline: 2px solid #79a8ff;
+  outline: 2px solid var(--accent-link);
   outline-offset: -2px;
 }
 button:disabled {
@@ -183,13 +192,13 @@ button:disabled {
   padding: 8px;
   border: 0;
   border-radius: 9px;
-  color: #909baa;
+  color: var(--text-muted);
   background: transparent;
 }
 .icon-button:hover,
 .icon-button.active {
-  color: #79a8ff;
-  background: #242d3e;
+  color: var(--accent-link);
+  background: var(--accent-soft);
 }
 .icon-button span {
   width: 24px;
@@ -204,15 +213,15 @@ button:disabled {
   width: 0;
   min-width: 0;
   padding: 11px 12px;
-  border: 1px solid #343842;
+  border: 1px solid var(--border);
   border-radius: 9px;
   outline: none;
-  color: #f2f3f5;
-  background: #20232a;
+  color: var(--text);
+  background: var(--field);
   font: inherit;
 }
 .composer input:focus {
-  border-color: #4f7fea;
+  border-color: var(--accent);
 }
 .send-button {
   display: grid;
@@ -224,7 +233,7 @@ button:disabled {
   border: 0;
   border-radius: 50%;
   color: white;
-  background: #386be0;
+  background: var(--accent);
 }
 .send-button svg {
   width: 22px;
@@ -234,7 +243,7 @@ button:disabled {
 .error {
   padding: 8px 16px;
   margin: 0;
-  color: #ff9b9b;
+  color: var(--danger);
   font-size: 12px;
 }
 @media (max-width: 620px) {

@@ -1,577 +1,713 @@
 <script setup lang="ts">
-
-import type { User } from "./types/user";
-
-// Импорт 2 функций из vue
-// onMounted - запускает код после появления компонента
-// ref -  создает быстрые перемещения
-import { onMounted, ref } from "vue";
-
-import Database from "@tauri-apps/plugin-sql";
-
-import AppHeader from "./components/AppHeader.vue";
-
-import MessageList from "./components/MessageList.vue";
-
-import MessageComposer from "./components/MessageComposer.vue";
-
+import { onMounted, onUnmounted, ref, watch } from "vue";
+import ChatHeader from "./components/ChatHeader.vue";
+import GroupCreator from "./components/GroupCreator.vue";
+import GroupInfo from "./components/GroupInfo.vue";
+import ChannelEditor from "./components/ChannelEditor.vue";
+import ChannelInfo from "./components/ChannelInfo.vue";
+import ChannelComments from "./components/ChannelComments.vue";
 import ChatSidebar from "./components/ChatSidebar.vue";
-
-import type { Chat } from "./types/chats";
-
-import type { Message } from "./types/message.ts";
-
-import type {ProfileUpdate} from "./types/user";
-
+import MessageList from "./components/MessageList.vue";
+import MessageComposer from "./components/MessageComposer.vue";
+import AuthScreen from "./components/AuthScreen.vue";
+import AccountMenu from "./components/AccountMenu.vue";
 import ProfileEditor from "./components/ProfileEditor.vue";
+import ModalDialog from "./components/ModalDialog.vue";
+import ChatActions from "./components/ChatActions.vue";
+import { useAccounts } from "./composables/useAccounts";
+import { useChats } from "./composables/useChats";
+import { useAppearance } from "./composables/useAppearance";
+import { useAppearanceAutosave } from "./composables/useAppearanceAutosave";
+import { ApiError, request } from "./services/api";
+import type { Channel, ChannelUpdate } from "./types/channel";
+import type { Credentials } from "./types/account";
+import type { ProfileUpdate, User } from "./types/user";
+import type { Message } from "./types/message";
+import type { Chat } from "./types/chats";
+import "./styles/accounts.css";
+import "./styles/theme.css";
 
-const isProfileOpen = ref(false);
-
-function openProfile(){
-  isProfileOpen.value = true;
-}
-
-function closeProfile(){
-  isProfileOpen.value = false;
-}
-
-
-async function saveProfile( profile: ProfileUpdate, ){
-  if (!db) return;
-  if (!currentUser.value) return;
-
-  await db.execute(
-      `
-        UPDATE users
-
-        SET
-            display_name = $1,
-            status = $2
-
-        WHERE id = $3
-      `,
-      [
-          profile.displayName,
-          profile.status,
-          currentUser.value.id,
-      ],
-  );
-
-  currentUser.value.display_name = profile.displayName;
-  currentUser.value.status = profile.status;
-
-  if(activeChat.value){
-    await loadMessages(
-        activeChat.value.id,
-    );
-  }
-
-  closeProfile();
-}
-
-const users = ref<User[]>([]);
-
-const currentUser = ref<User | null>(null);
-
-async function selectUser(user: User) {
-  currentUser.value = user;
-  activeChat.value = null;
-
-  await loadChats();
-
-  const savedChatId = await getSelectedChatId(user.id);
-
-  const chatToOpen =
-      chats.value.find((chat) => chat.id === savedChatId)
-      ?? chats.value[0];
-
-  if (chatToOpen) {
-    await selectChat(chatToOpen);
-  }
-}
-
-// Создаем структуру одного сообщения
-
-// Список сообщений, которые vue отображет в диалоге на экране
-const messages = ref<Message[]>([]);
-
-const chats = ref<Chat[]>([]);
-
-const activeChat = ref<Chat | null>(null);
-
-const activeChatId = ref(1);
-
-// Статус подключения к бд
-const status = ref("Подключение...")
-
-// Здесь будет подключение к бд (честно), но пока тут null
-let db: Database | null = null;
-
-async function getSelectedChatId(userId: number) {
-  if (!db) return null;
-
-  const result = await db.select<{ selected_chat_id: number | null }[]>(
-      `
-      SELECT selected_chat_id
-      FROM user_chat_state
-      WHERE user_id = $1
-    `,
-      [userId],
-  );
-
-  return result[0]?.selected_chat_id ?? null;
-}
-
-async function saveSelectedChat(chatId: number) {
-  if (!db || !currentUser.value) return;
-
-  await db.execute(
-      `
-      INSERT INTO user_chat_state (
-        user_id,
-        selected_chat_id
-      )
-      VALUES ($1, $2)
-
-      ON CONFLICT(user_id)
-      DO UPDATE SET
-        selected_chat_id = excluded.selected_chat_id
-    `,
-      [currentUser.value.id, chatId],
-  );
-}
-
-async function loadChats(){
-  const user = currentUser.value;
-
-  if (!db || !user) return;
-
-  chats.value = await db.select<Chat[]>(
-      `
-      SELECT
-        chats.id,
-        chats.title,
-        chats.subtitle,
-        COUNT(messages.id) AS unread_count
-      FROM chats
-
-      LEFT JOIN chat_read_state
-        ON chat_read_state.chat_id = chats.id
-        AND chat_read_state.user_id = $1
-
-      LEFT JOIN messages
-        ON messages.chat_id = chats.id
-        AND messages.id > COALESCE(chat_read_state.last_read_message_id, 0)
-        AND messages.author_id != $1
-
-      GROUP BY chats.id
-      ORDER BY chats.id ASC
-    `,
-      [user.id],
-  );
-}
-
-async function markChatAsRead(chatId: number) {
-  if (!db || !currentUser.value) return;
-
-  const result = await db.select<{ last_id: number | null }[]>(
-      `
-      SELECT MAX(id) AS last_id
-      FROM messages
-      WHERE chat_id = $1
-    `,
-      [chatId],
-  );
-
-  const lastMessageId = result[0]?.last_id ?? 0;
-
-  await db.execute(
-      `
-      INSERT INTO chat_read_state (
-        user_id,
-        chat_id,
-        last_read_message_id
-      )
-      VALUES ($1, $2, $3)
-
-      ON CONFLICT(user_id, chat_id)
-      DO UPDATE SET
-        last_read_message_id = excluded.last_read_message_id
-    `,
-      [currentUser.value.id, chatId, lastMessageId],
-  );
-}
-
-async function selectChat(chat: Chat){
-  activeChat.value = chat;
-  activeChatId.value = chat.id;
-
-  await saveSelectedChat(chat.id);
-  await loadMessages(chat.id);
-  await markChatAsRead(chat.id);
-  await loadChats();
-}
-
-// Асинхронная функция загрузки сообщений из sql
-async function loadMessages(chatId: number){
-  // Если база еще не подключена, прерываем выполнение
-  if (!db) return;
-
-  // Читаем данные из таблицы messages
-  messages.value = await db.select<Message[]>(
-    `SELECT
-       messages.id,
-       messages.chat_id,
-       messages.author_id,
-       users.display_name AS author_name,
-       users.avatar_path AS author_avatar,
-       messages.type,
-       messages.body,
-       messages.attachment,
-       messages.created_at
-      FROM messages
-      INNER JOIN users
-            ON users.id = messages.author_id
-      WHERE messages.chat_id = $1
-      ORDER BY messages.id ASC`,
-      [chatId],
-  );
-}
-
-async function loadUsers(){
-  if(!db) return;
-
-  users.value =
-      await  db.select<User[]>(
-          `
-          SELECT
-            id,
-            username,
-            display_name,
-            avatar_path,
-            status,
-            created_at
-          FROM users
-          ORDER BY id ASC
-         `,
-      );
-  if (users.value.length > 0 && currentUser.value === null){
-    currentUser.value = users.value[0];
-  }
-}
-
-// Компоненты передают действия событиями; работа с БД остаётся здесь.
+const accounts = useAccounts();
+const chatState = useChats();
+const { currentUser, savedUsers, loading, busy, error: authError } = accounts;
+const { preview: appearancePreview } = useAppearance(currentUser);
+const appearanceSaver = useAppearanceAutosave(
+  currentUser,
+  appearancePreview,
+  accounts.updateAppearance,
+);
+const { status: appearanceStatus, error: appearanceError } = appearanceSaver;
+const { chats, messages, activeChat } = chatState;
+const menuOpen = ref(false);
+const addingAccount = ref(false);
+const profileOpen = ref(false);
+const profileTab = ref<"profile" | "appearance">("profile");
+const managedChat = ref<Chat | null>(null);
+const chatBusy = ref(false);
+const chatError = ref("");
+const groupOpen = ref(false);
+const groupError = ref("");
+const inspectedGroup = ref<Chat | null>(null);
+const inspectedChannelId = ref<number | null>(null);
+const channelEditorOpen = ref(false);
+const editingChannel = ref<Channel | null>(null);
+const channelBusy = ref(false);
+const channelError = ref("");
+const discussedPost = ref<Message | null>(null);
+watch(messages, (loaded) => {
+  if (discussedPost.value)
+    discussedPost.value =
+      loaded.find((post) => post.id === discussedPost.value?.id) ?? null;
+});
+watch(
+  () => currentUser.value?.id,
+  () => {
+    inspectedChannelId.value = null;
+    channelEditorOpen.value = false;
+    editingChannel.value = null;
+    discussedPost.value = null;
+    inspectedGroup.value = null;
+    groupOpen.value = false;
+    managedChat.value = null;
+  },
+);
+watch(
+  () => activeChat.value?.id,
+  () => {
+    discussedPost.value = null;
+  },
+);
+watch(profileOpen, (open) => {
+  if (!open) void appearanceSaver.flush();
+});
+const accountBusy = ref(false);
+const profileBusy = ref(false);
+const profileError = ref("");
+const appError = ref("");
+const sendBusy = ref(false);
+const sendError = ref("");
+const sentVersion = ref(0);
+const status = ref("Подключение к серверу…");
 const pendingMessageId = ref<number | null>(null);
 const messageError = ref<{ messageId: number | null; text: string }>({
   messageId: null,
   text: "",
 });
+let timer: ReturnType<typeof setInterval> | undefined;
 
-async function editMessage(message: Message, body: string) {
-  const connection = db;
-  const user = currentUser.value;
-  const text = body.trim();
-
-  if (!connection || !user || pendingMessageId.value !== null) {
-    return;
+async function reportError(cause: unknown) {
+  appError.value = cause instanceof Error ? cause.message : String(cause);
+  status.value = "Нет связи с сервером";
+  if (cause instanceof ApiError && cause.status === 401) {
+    menuOpen.value = false;
+    profileOpen.value = false;
+    addingAccount.value = false;
+    chatState.reset();
+    await accounts.expireCurrent();
   }
-  if (message.author_id !== user.id || message.type !== "text" || !text) {
-    return;
-  }
+}
 
+async function loadWorkspace() {
+  messageError.value = { messageId: null, text: "" };
+  await chatState.initialize();
+  appError.value = "";
+  status.value = "На связи";
+}
+
+async function authenticate(
+  mode: "login" | "register",
+  credentials: Credentials,
+) {
+  if (!(await appearanceSaver.flush())) return;
+  chatState.reset();
+  if (await accounts.authenticate(mode, credentials)) {
+    addingAccount.value = false;
+    try {
+      await loadWorkspace();
+    } catch (cause) {
+      await reportError(cause);
+    }
+  } else if (currentUser.value) {
+    try {
+      await loadWorkspace();
+    } catch (cause) {
+      await reportError(cause);
+    }
+  }
+}
+
+async function selectAccount(user: User) {
+  if (accountBusy.value || pendingMessageId.value !== null) return;
+  accountBusy.value = true;
+  try {
+    if (!(await appearanceSaver.flush())) return;
+    chatState.reset();
+    await accounts.activate(user);
+    await loadWorkspace();
+    menuOpen.value = false;
+  } catch (cause) {
+    await reportError(cause);
+    if (currentUser.value) {
+      try {
+        await loadWorkspace();
+      } catch {
+        /* Ошибка уже показана. */
+      }
+    }
+  } finally {
+    accountBusy.value = false;
+  }
+}
+
+async function openAddAccount() {
+  if (!(await appearanceSaver.flush())) return;
+  menuOpen.value = false;
+  authError.value = "";
+  addingAccount.value = true;
+}
+function openProfile(tab: "profile" | "appearance" = "profile") {
+  menuOpen.value = false;
+  profileError.value = "";
+  profileTab.value = tab;
+  profileOpen.value = true;
+}
+
+async function createGroup(title: string, memberIds: number[]) {
+  if (chatBusy.value) return;
+  chatBusy.value = true;
+  groupError.value = "";
+  try {
+    await chatState.createGroup(title, memberIds);
+    groupOpen.value = false;
+  } catch (cause) {
+    groupError.value = cause instanceof Error ? cause.message : String(cause);
+  } finally {
+    chatBusy.value = false;
+  }
+}
+
+async function writeUser(user: User) {
+  if (chatBusy.value) return;
+  chatBusy.value = true;
+  try {
+    await chatState.writeUser(user);
+    appError.value = "";
+  } catch (cause) {
+    await reportError(cause);
+  } finally {
+    chatBusy.value = false;
+  }
+}
+
+function openChannelEditor(channel: Channel | null = null) {
+  menuOpen.value = false;
+  inspectedChannelId.value = null;
+  editingChannel.value = channel;
+  channelError.value = "";
+  channelEditorOpen.value = true;
+}
+function inspectChannel(id: number) {
+  channelError.value = "";
+  inspectedChannelId.value = id;
+}
+async function saveChannel(value: ChannelUpdate) {
+  if (channelBusy.value) return;
+  channelBusy.value = true;
+  channelError.value = "";
+  try {
+    if (editingChannel.value) {
+      await request(`/api/channels/${editingChannel.value.id}`, "PATCH", value);
+      channelEditorOpen.value = false;
+      try {
+        await chatState.refresh();
+      } catch (cause) {
+        await reportError(cause);
+      }
+    } else {
+      await chatState.createChannel(value);
+      channelEditorOpen.value = false;
+    }
+  } catch (cause) {
+    channelError.value = cause instanceof Error ? cause.message : String(cause);
+  } finally {
+    channelBusy.value = false;
+  }
+}
+async function subscribeChannel(id: number) {
+  if (channelBusy.value) return;
+  channelBusy.value = true;
+  channelError.value = "";
+  try {
+    await chatState.subscribeChannel(id);
+    inspectedChannelId.value = null;
+  } catch (cause) {
+    channelError.value = cause instanceof Error ? cause.message : String(cause);
+  } finally {
+    channelBusy.value = false;
+  }
+}
+async function leaveChannel() {
+  if (!inspectedChannelId.value || channelBusy.value) return;
+  channelBusy.value = true;
+  channelError.value = "";
+  try {
+    await chatState.leaveChannel(inspectedChannelId.value);
+    inspectedChannelId.value = null;
+  } catch (cause) {
+    channelError.value = cause instanceof Error ? cause.message : String(cause);
+  } finally {
+    channelBusy.value = false;
+  }
+}
+
+function manageChat(chat: Chat) {
+  managedChat.value = chat;
+  chatError.value = "";
+}
+
+async function updateChat(settings: { muted?: boolean; pinned?: boolean }) {
+  if (!managedChat.value || chatBusy.value) return;
+  chatBusy.value = true;
+  chatError.value = "";
+  try {
+    await chatState.updateChat(managedChat.value, settings);
+    managedChat.value = null;
+  } catch (cause) {
+    chatError.value = cause instanceof Error ? cause.message : String(cause);
+  } finally {
+    chatBusy.value = false;
+  }
+}
+
+async function removeChat() {
+  if (!managedChat.value || chatBusy.value) return;
+  chatBusy.value = true;
+  chatError.value = "";
+  try {
+    await chatState.removeChat(managedChat.value);
+    managedChat.value = null;
+  } catch (cause) {
+    chatError.value = cause instanceof Error ? cause.message : String(cause);
+  } finally {
+    chatBusy.value = false;
+  }
+}
+
+async function saveProfile(profile: ProfileUpdate) {
+  profileBusy.value = true;
+  profileError.value = "";
+  try {
+    if (!(await appearanceSaver.flush())) return;
+    await accounts.updateProfile(profile);
+    await chatState.refresh();
+    profileOpen.value = false;
+  } catch (cause) {
+    profileError.value = cause instanceof Error ? cause.message : String(cause);
+  } finally {
+    profileBusy.value = false;
+  }
+}
+
+async function logout() {
+  accountBusy.value = true;
+  try {
+    if (!(await appearanceSaver.flush())) return;
+    chatState.reset();
+    await accounts.logout();
+    menuOpen.value = false;
+    if (currentUser.value) await loadWorkspace();
+  } catch (cause) {
+    await reportError(cause);
+    if (currentUser.value) {
+      try {
+        await loadWorkspace();
+      } catch {
+        /* Ошибка уже показана. */
+      }
+    }
+  } finally {
+    accountBusy.value = false;
+  }
+}
+
+async function selectChat(chat: Chat) {
+  if (chatBusy.value || sendBusy.value) return;
+  chatBusy.value = true;
+  try {
+    await chatState.selectChat(chat);
+    appError.value = "";
+  } catch (cause) {
+    await reportError(cause);
+  } finally {
+    chatBusy.value = false;
+  }
+}
+async function sendMessage(body: string) {
+  if (sendBusy.value) return;
+  sendBusy.value = true;
+  sendError.value = "";
+  try {
+    await chatState.sendMessage(body);
+    sentVersion.value++;
+    appError.value = "";
+  } catch (cause) {
+    sendError.value = cause instanceof Error ? cause.message : String(cause);
+  } finally {
+    sendBusy.value = false;
+  }
+}
+async function sendImage(path: string) {
+  if (sendBusy.value) return;
+  sendBusy.value = true;
+  sendError.value = "";
+  try {
+    await chatState.sendImage(path);
+    appError.value = "";
+  } catch (cause) {
+    sendError.value = cause instanceof Error ? cause.message : String(cause);
+  } finally {
+    sendBusy.value = false;
+  }
+}
+async function changeMessage(
+  message: Message,
+  action: "edit" | "delete",
+  body = "",
+) {
+  if (pendingMessageId.value !== null) return;
   pendingMessageId.value = message.id;
   messageError.value = { messageId: null, text: "" };
-
   try {
-    const result = await connection.execute(
-      "UPDATE messages SET body = $1 WHERE id = $2 AND author_id = $3 AND type = 'text'",
-      [text, message.id, user.id],
-    );
-
-    if (!result.rowsAffected) {
-      throw new Error("Сообщение уже удалено.");
-    }
-    if (currentUser.value?.id === user.id && activeChat.value?.id === message.chat_id) {
-      messages.value = messages.value.map(item =>
-        item.id === message.id ? { ...item, body: text } : item
-      );
-    }
-  } catch (error) {
+    if (action === "edit") await chatState.editMessage(message, body);
+    else await chatState.deleteMessage(message);
+  } catch (cause) {
     messageError.value = {
       messageId: message.id,
-      text: "Не удалось сохранить: " + String(error),
+      text: cause instanceof Error ? cause.message : String(cause),
     };
   } finally {
     pendingMessageId.value = null;
   }
 }
 
-async function deleteMessage(message: Message) {
-  const connection = db;
-  const user = currentUser.value;
-
-  if (!connection || !user || pendingMessageId.value !== null) {
-    return;
-  }
-  if (message.author_id !== user.id) {
-    return;
-  }
-
-  pendingMessageId.value = message.id;
-  messageError.value = { messageId: null, text: "" };
-
-  try {
-    await connection.execute(
-      "DELETE FROM messages WHERE id = $1 AND author_id = $2",
-      [message.id, user.id],
-    );
-
-    if (currentUser.value?.id === user.id && activeChat.value?.id === message.chat_id) {
-      messages.value = messages.value.filter(item => item.id !== message.id);
-    }
-    await loadChats();
-  } catch (error) {
-    messageError.value = {
-      messageId: message.id,
-      text: "Не удалось удалить: " + String(error),
-    };
-  } finally {
-    pendingMessageId.value = null;
-  }
-}
-
-// Функция отправки нового сообщения
-async function sendMessage(body: string){
-  if (!db) return;
-
-  if (!activeChat.value) return;
-
-  if (!currentUser.value) return;
-
-  await db.execute(
-    `
-       INSERT INTO messages (
-            chat_id,
-            author_id,
-            type,
-            body,
-            attachment
-       )
-       VALUES ($1, $2, $3, $4, $5)
-    `,
-      [
-          activeChat.value.id,
-          currentUser.value.id,
-          "text",
-          body,
-          null,
-      ],
-  );
-  await loadMessages(activeChat.value.id)
-}
-
-async function sendImage(path:string){
-  if(!db)
-    return;
-
-  if (!activeChat.value)
-    return;
-
-  if (!currentUser.value) return;
-
-  await db.execute(
-      `
-        INSERT INTO messages
-        (
-           chat_id,
-           author_id,
-           type,
-           body,
-           attachment
-        )
-
-        VALUES
-        (
-            $1,
-            $2,
-            $3,
-            $4,
-            $5
-        )
-      `,
-      [
-          activeChat.value.id,
-          currentUser.value.id,
-          "image",
-          null,
-          path,
-      ]
-  );
-
-  await loadMessages(
-      activeChat.value.id
+async function refresh() {
+  if (
+    !currentUser.value ||
+    accountBusy.value ||
+    busy.value ||
+    addingAccount.value ||
+    profileBusy.value ||
+    chatBusy.value ||
+    document.visibilityState !== "visible"
   )
+    return;
+  try {
+    await chatState.refresh();
+    status.value = "На связи";
+  } catch (cause) {
+    await reportError(cause);
+  }
 }
 
-// VUE выполнит код ниже, когда интерфейс программы уже загрузится
-onMounted(async()=>{
-  try{
-    // Открываем бд
-    db = await Database.load("sqlite:messenger_v2.db");
-
-    // Загружаем из базы старые сообщения
-    await loadUsers();
-
-    if (users.value.length > 0) {
-      await selectUser(users.value[0]);
+onMounted(async () => {
+  await accounts.initialize();
+  if (currentUser.value) {
+    try {
+      await loadWorkspace();
+    } catch (cause) {
+      await reportError(cause);
     }
-
-    await loadChats();
-    // Показываем успешеное состоние
-    status.value = "История сохраняется локально";
-  }catch (error){
-    console.error(error);
-
-    status.value = "Ошибка подключения к базе";
   }
+  timer = setInterval(refresh, 3000);
+  document.addEventListener("visibilitychange", refresh);
 });
-
+onUnmounted(() => {
+  clearInterval(timer);
+  document.removeEventListener("visibilitychange", refresh);
+  chatState.reset();
+});
 </script>
 
 <template>
   <main class="app">
-    <AppHeader
-        v-if="currentUser"
-        :status="status"
-        :users="users"
-        :current-user="currentUser"
-        @select="selectUser"
-        @profile="openProfile"
-    />
-    <p v-else class="boot-status">{{ status }}</p>
-    <div
-        v-if="currentUser"
-        class="workspace"
-    >
-      <ChatSidebar
+    <p v-if="loading" class="boot-status">Открываем DesireMes…</p>
+    <div v-else-if="!currentUser" class="auth-page">
+      <AuthScreen :busy="busy" :error="authError" @submit="authenticate" />
+      <button
+        v-if="savedUsers.length"
+        class="text-button"
+        @click="accounts.initialize"
+      >
+        Повторить подключение
+      </button>
+    </div>
+    <template v-else>
+      <div
+        v-if="appError || (!profileOpen && appearanceError)"
+        class="connection-error"
+        role="alert"
+      >
+        <span>{{ appError || appearanceError }}</span
+        ><button
+          type="button"
+          class="text-button"
+          @click="appearanceError ? appearanceSaver.flush() : refresh()"
+        >
+          Повторить
+        </button>
+      </div>
+      <div class="workspace">
+        <ChatSidebar
+          :key="currentUser.id"
           :chats="chats"
-          :active-chat-id="activeChatId"
+          :active-chat-id="activeChat?.id || 0"
+          :busy="
+            chatBusy ||
+            accountBusy ||
+            sendBusy ||
+            pendingMessageId !== null ||
+            channelBusy
+          "
           @select="selectChat"
-      />
-      <section class="chat">
-        <template v-if="activeChat">
-          <div class="chat-info">
-            <h2>{{ activeChat.title }}</h2>
-            <p>{{ activeChat.subtitle }}</p>
-          </div>
-          <MessageList
+          @write="writeUser"
+          @manage="manageChat"
+          @menu="menuOpen = true"
+          @channel="(channel) => inspectChannel(channel.id)"
+        />
+        <section class="chat">
+          <template v-if="activeChat">
+            <ChatHeader
+              :chat="activeChat"
+              :busy="chatBusy || sendBusy || pendingMessageId !== null"
+              @menu="manageChat(activeChat)"
+              @info="
+                activeChat.kind === 'channel'
+                  ? inspectChannel(activeChat.id)
+                  : (inspectedGroup = activeChat)
+              "
+            />
+            <MessageList
               :key="activeChat.id + '-' + currentUser.id"
               :messages="messages"
               :current-user-id="currentUser.id"
               :pending-message-id="pendingMessageId"
               :message-error="messageError"
-              @edit="editMessage"
-              @delete="deleteMessage"
-          />
-          <MessageComposer
+              :channel="activeChat.kind === 'channel'"
+              :comments-enabled="Boolean(activeChat.comments_enabled)"
+              @edit="(message, body) => changeMessage(message, 'edit', body)"
+              @delete="(message) => changeMessage(message, 'delete')"
+              @comments="discussedPost = $event"
+            />
+            <MessageComposer
+              v-if="activeChat.kind !== 'channel' || activeChat.can_post"
+              :key="currentUser.id + '-' + activeChat.id"
+              :pending="sendBusy || chatBusy || accountBusy"
+              :send-error="sendError"
+              :sent-version="sentVersion"
               @send="sendMessage"
-              @sendImage="sendImage"
-          />
-        </template>
-      </section>
-    </div>
-    <ProfileEditor
-        v-if="isProfileOpen && currentUser"
+              @send-image="sendImage"
+            />
+            <div v-else class="channel-readonly">
+              <span>Публикует владелец канала</span
+              ><button
+                class="text-button"
+                @click="inspectChannel(activeChat.id)"
+              >
+                О канале
+              </button>
+            </div>
+          </template>
+          <div v-else class="chat-placeholder">
+            Найдите пользователя в поиске слева, чтобы начать переписку
+          </div>
+        </section>
+      </div>
+      <AccountMenu
+        v-if="menuOpen"
+        :user="currentUser"
+        :accounts="savedUsers"
+        :status="status"
+        :busy="accountBusy || chatBusy || sendBusy || pendingMessageId !== null"
+        @close="menuOpen = false"
+        @select="selectAccount"
+        @add="openAddAccount"
+        @profile="openProfile"
+        @appearance="openProfile('appearance')"
+        @logout="logout"
+        @channel="openChannelEditor()"
+        @group="
+          menuOpen = false;
+          groupError = '';
+          groupOpen = true;
+        "
+      />
+      <ProfileEditor
+        v-if="profileOpen"
         :key="currentUser.id"
         :user="currentUser"
+        :busy="profileBusy"
+        :error="profileError"
+        :initial-tab="profileTab"
+        :appearance-value="appearancePreview ?? currentUser.appearance"
+        :appearance-status="appearanceStatus"
+        :appearance-error="appearanceError"
+        @close="profileOpen = false"
         @save="saveProfile"
-        @close="closeProfile"
-    ></ProfileEditor>
+        @change-appearance="appearanceSaver.change"
+        @flush-appearance="appearanceSaver.flush"
+      />
+      <GroupCreator
+        v-if="groupOpen"
+        :busy="chatBusy"
+        :error="groupError"
+        @close="groupOpen = false"
+        @create="createGroup"
+      />
+      <GroupInfo
+        v-if="inspectedGroup"
+        :chat="inspectedGroup"
+        @close="inspectedGroup = null"
+      />
+      <ChannelEditor
+        v-if="channelEditorOpen"
+        :channel="editingChannel"
+        :busy="channelBusy"
+        :error="channelError"
+        @close="channelEditorOpen = false"
+        @save="saveChannel"
+      />
+      <ChannelInfo
+        v-if="inspectedChannelId"
+        :key="inspectedChannelId + '-' + currentUser.id"
+        :id="inspectedChannelId"
+        :busy="channelBusy"
+        :error="channelError"
+        @close="inspectedChannelId = null"
+        @subscribe="subscribeChannel"
+        @leave="leaveChannel"
+        @edit="openChannelEditor"
+      />
+      <ChannelComments
+        v-if="discussedPost && activeChat?.kind === 'channel'"
+        :key="currentUser.id + '-' + discussedPost.id"
+        :post="discussedPost"
+        :current-user-id="currentUser.id"
+        :can-moderate="Boolean(activeChat.can_post)"
+        @close="discussedPost = null"
+        @changed="refresh"
+      />
+      <ChatActions
+        v-if="managedChat"
+        :chat="managedChat"
+        :busy="chatBusy || sendBusy || accountBusy || pendingMessageId !== null"
+        :error="chatError"
+        @close="managedChat = null"
+        @update="updateChat"
+        @remove="removeChat"
+        @info="
+          inspectChannel(managedChat.id);
+          managedChat = null;
+        "
+      />
+      <ModalDialog
+        v-if="addingAccount"
+        label="Добавить аккаунт"
+        @close="!busy && (addingAccount = false)"
+      >
+        <AuthScreen
+          adding
+          :busy="busy"
+          :error="authError"
+          @submit="authenticate"
+          @cancel="addingAccount = false"
+        />
+      </ModalDialog>
+    </template>
   </main>
 </template>
 
 <style scoped>
-/* Все элементы будут использовать одну модель размеров */
-:global(*){
+:global(*) {
   box-sizing: border-box;
 }
-
-:global(html){
-  background: #111318;
-  color-scheme: dark;
+:global(html) {
+  background: var(--bg);
+  color-scheme: var(--color-scheme);
 }
-
-:global(body){
+:global(body) {
   margin: 0;
-
   font-family:
-  Inter,
-  system-ui,
-  -apple-system,
-  BlinkMacSystemFont,
-  "Segoe UI",
-  sans-serif;
-
-  color: #f2f3f5;
-
-  background: #111318;
+    Inter,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  color: var(--text);
+  background: var(--bg);
 }
-
-.workspace{
+.app {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.auth-page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 20px;
+}
+.workspace {
   flex: 1;
   min-height: 0;
   display: flex;
   overflow: hidden;
 }
-
-.app{
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  /*
-      Запретит всему app прокручиваться
-      Разрешим прокрутку только для MessageList
-  */
-  overflow: hidden;
-}
-
-.boot-status{
+.boot-status {
   margin: 24px;
-  color: #858c98;
+  color: var(--text-muted);
 }
-
-.chat{
+.chat {
   flex: 1;
+  min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* Потому что chat целиком не должен прокручиваться, только MessageList внутри него */
+  overflow: hidden;
 }
-
-.chat-info{
-  padding: 20px 24px;
-  border-bottom: 1px solid #252830;
+.chat-placeholder {
+  margin: auto;
+  padding: 24px;
+  max-width: 340px;
+  text-align: center;
+  line-height: 1.6;
+  color: var(--text-muted);
 }
-
-.chat-info h2{
-  margin: 0;
-  font-size: 16px;
+.channel-readonly {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 12px;
 }
-
-.chat-info p{
-  margin: 5px 0 0;
-  color: #858c98;
+.connection-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 20px;
+  background: #41232b;
+  color: #ffc2c2;
   font-size: 13px;
 }
-
+.connection-error .text-button {
+  margin: 0;
+  white-space: nowrap;
+}
 </style>
-
-
-
-
-
-
-
-
-
-

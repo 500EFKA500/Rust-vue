@@ -1,6 +1,7 @@
 
 // Импорт типов, необходимых для migrations
 use tauri_plugin_sql::{Migration, MigrationKind};
+mod account_vault;
 
 use std::path::Path;
 
@@ -216,7 +217,10 @@ pub fn run() {
         // Запускаем приложение
         .invoke_handler(
             tauri::generate_handler![
-                save_attachment
+                save_attachment,
+                account_vault::load_account_vault,
+                account_vault::save_account_vault,
+                account_vault::read_attachment
             ]
         )
         .run(tauri::generate_context!())
