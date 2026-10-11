@@ -19,6 +19,9 @@ import { onMounted, ref, computed } from "vue";
 const channels = ref<Channel[]>([]);
 const selectedChannelId = ref(1);
 const currentChannel = computed(() => channels.value.find(c => c.id === selectedChannelId.value));
+const memberIds = ref<number[]>([]);
+const subscribed = computed(() => memberIds.value.includes(currentUser.value.id));
+const canPublish = computed(() => subscribed.value && currentChannel.value?.owner_id === currentUser.value.id);
 const busy = ref(false);
 let messageRequest = 0;
 const isEmojiOpen = ref(false);
@@ -47,8 +50,11 @@ const users: User[] = [
 
 const currentUser = ref<User>(oleg);
 
-function selectUser(user: User){
+async function selectUser(user: User){
+  if (busy.value) return;
   currentUser.value = user;
+  messages.value = []; draft.value = ''; clearAttachment();
+  try { await loadMessages(); } catch (error) { console.error(error); status.value = 'Не удалось загрузить историю'; }
 }
 
 // список соо которые vue отображает в диалоговом экране
@@ -69,11 +75,15 @@ async function loadMessages(){
   // читаем данные
   const request = ++messageRequest;
   const channelId = selectedChannelId.value;
+  const userId = currentUser.value.id;
+  const members = await db.select<{user_id:number}[]>('SELECT user_id FROM channel_members WHERE channel_id=$1', [channelId]);
   const loaded = await db.select<Message[]>(
-      "SELECT id, author, body, created_at, image_path, channel_id FROM messages WHERE channel_id=$1 ORDER BY id ASC",
-      [channelId],
+      "SELECT id, author, body, created_at, image_path, channel_id FROM messages WHERE channel_id=$1 AND EXISTS(SELECT 1 FROM channel_members WHERE channel_id=$1 AND user_id=$2) ORDER BY id ASC",
+      [channelId,userId],
   );
-  if (request === messageRequest && selectedChannelId.value === channelId) messages.value = loaded;
+  if (request === messageRequest && selectedChannelId.value === channelId && currentUser.value.id === userId) {
+    memberIds.value = members.map(m => m.user_id); messages.value = loaded;
+  }
 }
 
 async function loadChannels() {
@@ -83,9 +93,21 @@ async function selectChannel(id: number) {
   if (busy.value || !channels.value.some(c => c.id === id)) return;
   selectedChannelId.value = id;
   messages.value = [];
+  memberIds.value = [];
   draft.value = '';
   clearAttachment();
   try { await loadMessages(); } catch (error) { console.error(error); status.value = 'Не удалось загрузить сообщения'; }
+}
+async function changeSubscription() {
+  if (!db || busy.value) return;
+  if (currentChannel.value?.owner_id === currentUser.value.id) { status.value = 'Владелец остаётся подписчиком'; return; }
+  busy.value = true;
+  try {
+    if (subscribed.value) await db.execute('DELETE FROM channel_members WHERE channel_id=$1 AND user_id=$2',[selectedChannelId.value,currentUser.value.id]);
+    else await db.execute('INSERT OR IGNORE INTO channel_members(channel_id,user_id) VALUES($1,$2)',[selectedChannelId.value,currentUser.value.id]);
+    await loadMessages(); status.value = subscribed.value ? 'Подписка оформлена' : 'Подписка отменена';
+  } catch(error) { console.error(error); status.value = 'Не удалось изменить подписку'; }
+  finally { busy.value = false; }
 }
 async function createChannel(name: string, description: string) {
   if (!db || busy.value) return;
@@ -125,16 +147,17 @@ function clearAttachment(){
 }
 
 async function sendMessage(body: string){
-  if (!db || busy.value || (!body.trim() && !attachmentPath.value)) return;
+  if (!db || busy.value || !canPublish.value || (!body.trim() && !attachmentPath.value)) return;
   busy.value = true;
   try {
     await db.execute(
-      "INSERT INTO messages (author, body, image_path, channel_id) VALUES ($1, $2, $3, $4)",
+      "INSERT INTO messages (author, body, image_path, channel_id) SELECT $1,$2,$3,$4 WHERE EXISTS(SELECT 1 FROM channels c JOIN channel_members m ON m.channel_id=c.id WHERE c.id=$4 AND c.owner_id=$5 AND m.user_id=$5)",
       [
           currentUser.value.name,
           body,
           attachmentPath.value,
           selectedChannelId.value,
+          currentUser.value.id,
       ],
   );
 
@@ -177,6 +200,13 @@ onMounted(async()=>{
     <ChannelList :channels="channels" :selected-id="selectedChannelId" :disabled="busy || !db"
       @select="selectChannel" @create="createChannel" />
     <p role="status" class="connection-status">{{ status }}</p>
+    <div class="connection-status">
+      {{ subscribed ? 'Подписан' : 'Не подписан' }} · Подписчиков: {{ memberIds.length }} ·
+      {{ canPublish ? 'Вы владелец: можете публиковать' : 'Публикует только владелец' }}
+      <button :disabled="busy || !db || currentChannel?.owner_id === currentUser.id" @click="changeSubscription">
+        {{ subscribed ? 'Отписаться' : 'Подписаться' }}
+      </button>
+    </div>
     <section class = "chat">
       <ChatInfo
           :title="currentChannel?.name ?? 'Канал'"
@@ -188,7 +218,7 @@ onMounted(async()=>{
       />
       <MessageComposer
           v-model="draft"
-          :disabled="busy || !db"
+          :disabled="busy || !db || !canPublish"
           :attachment-name="attachmentPath?.split(/[/\\]/).pop() ?? null"
           @send="sendMessage"
           @attach="chooseAttachment"

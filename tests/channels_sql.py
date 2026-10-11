@@ -24,3 +24,11 @@ for name in ('Учёба', '   ', 'x'*61):
     else:
         raise AssertionError('Invalid/duplicate name accepted')
 print('PASS: migrations, old history preservation, channel isolation, invalid/duplicate names')
+assert db.execute('SELECT user_id FROM channel_members WHERE channel_id=?', (channel,)).fetchone() == (1,)
+db.execute('INSERT INTO channel_members(channel_id,user_id) VALUES(?,2)', (channel,))
+assert db.execute('SELECT count(*) FROM channel_members WHERE channel_id=?', (channel,)).fetchone()[0] == 2
+db.execute('DELETE FROM channel_members WHERE channel_id=? AND user_id=2', (channel,))
+for user, expected in ((1, 1), (2, 0)):
+    result = db.execute('INSERT INTO messages(author,body,channel_id) SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM channels c JOIN channel_members m ON m.channel_id=c.id WHERE c.id=? AND c.owner_id=? AND m.user_id=?)', ('test','guarded',channel,channel,user,user))
+    assert result.rowcount == expected
+print('PASS: owner auto-subscription, join/leave and guarded owner-only publication')

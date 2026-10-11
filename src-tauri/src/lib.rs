@@ -31,6 +31,12 @@ pub fn run() {
             sql: include_str!("../migrations/0003_channels.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 4,
+            description: "channel_members_and_owner_subscription",
+            sql: include_str!("../migrations/0004_channel_members.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     // создаем сборщик приложения tauri
