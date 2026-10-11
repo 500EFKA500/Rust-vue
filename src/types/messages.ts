@@ -6,4 +6,5 @@ export interface Message{
     body: string;
     created_at: string;
     image_path: string | null;
+    channel_id: number;
 }

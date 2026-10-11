@@ -10,6 +10,7 @@ const emit = defineEmits<{
 const props = defineProps<{
   modelValue: string;
   attachmentName: string | null;
+  disabled?: boolean;
 }>()
 
 function updateDraft(event: Event) {
@@ -20,12 +21,11 @@ function updateDraft(event: Event) {
 function submitMessage(){
   const body = props.modelValue.trim();
 
-  if(!body && !props.attachmentName) return;
+  if(props.disabled || (!body && !props.attachmentName)) return;
 
   emit("send", body)
 
-  // отчистка поля после отправки
-  emit("update:modelValue", "");
+  // Родитель очищает черновик только после успешной записи в БД.
 }
 function openEmoji() {
   emit("toggle-emoji")
@@ -47,6 +47,7 @@ function clearAttachment() {
       class="composer"
       @submit.prevent="submitMessage"
   >
+    <fieldset :disabled="disabled" style="display: contents">
     <input
         :value="modelValue"
         @input="updateDraft"
@@ -67,6 +68,7 @@ function clearAttachment() {
       {{ attachmentName }}
       <button type="button" class="attachment__clear" @click="clearAttachment">×</button>
     </span>
+    </fieldset>
   </form>
 
 </template>

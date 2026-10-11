@@ -25,6 +25,12 @@ pub fn run() {
             sql: include_str!("../migrations/0002_add_image_path.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 3,
+            description: "add_channels_preserve_history",
+            sql: include_str!("../migrations/0003_channels.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     // создаем сборщик приложения tauri
